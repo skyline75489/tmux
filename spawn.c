@@ -200,6 +200,7 @@ spawn_window(struct spawn_context *sc, char **cause)
 struct window_pane *
 spawn_pane(struct spawn_context *sc, char **cause)
 {
+	#ifndef _WIN32
 	struct cmdq_item	 *item = sc->item;
 	struct cmd_find_state	 *target = cmdq_get_target(item);
 	struct client		 *c = cmdq_get_client(item);
@@ -467,4 +468,5 @@ complete:
 	if (~sc->flags & SPAWN_NONOTIFY)
 		notify_window("window-layout-changed", w);
 	return (new_wp);
+#endif
 }

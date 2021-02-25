@@ -142,6 +142,7 @@ ibuf_close(struct msgbuf *msgbuf, struct ibuf *buf)
 int
 ibuf_write(struct msgbuf *msgbuf)
 {
+	#ifndef _WIN32
 	struct iovec	 iov[IOV_MAX];
 	struct ibuf	*buf;
 	unsigned int	 i = 0;
@@ -171,7 +172,7 @@ again:
 	}
 
 	msgbuf_drain(msgbuf, n);
-
+#endif
 	return (1);
 }
 
@@ -222,6 +223,7 @@ msgbuf_clear(struct msgbuf *msgbuf)
 int
 msgbuf_write(struct msgbuf *msgbuf)
 {
+	#ifndef _WIN32
 	struct iovec	 iov[IOV_MAX];
 	struct ibuf	*buf;
 	unsigned int	 i = 0;
@@ -285,6 +287,8 @@ again:
 	msgbuf_drain(msgbuf, n);
 
 	return (1);
+#endif
+
 }
 
 static void

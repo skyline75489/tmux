@@ -48,7 +48,7 @@ struct popup_data {
 	u_int			  sx;
 	u_int			  sy;
 
-	enum { OFF, MOVE, SIZE }  dragging;
+	enum { OFF, MOVE, _SIZE }  dragging;
 	u_int			  dx;
 	u_int			  dy;
 
@@ -252,7 +252,7 @@ popup_handle_drag(struct client *c, struct popup_data *pd,
 		pd->dx = m->x - pd->px;
 		pd->dy = m->y - pd->py;
 		server_redraw_client(c);
-	} else if (pd->dragging == SIZE) {
+	} else if (pd->dragging == _SIZE) {
 		if (m->x < pd->px + 3)
 			return;
 		if (m->y < pd->py + 3)
@@ -305,7 +305,7 @@ popup_key_cb(struct client *c, struct key_event *event)
 			if (MOUSE_BUTTONS(m->lb) == 0)
 				pd->dragging = MOVE;
 			else if (MOUSE_BUTTONS(m->lb) == 2)
-				pd->dragging = SIZE;
+				pd->dragging = _SIZE;
 			pd->dx = m->lx - pd->px;
 			pd->dy = m->ly - pd->py;
 			goto out;

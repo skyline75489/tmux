@@ -19,7 +19,6 @@
 #include <sys/types.h>
 
 #include <errno.h>
-#include <glob.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -122,6 +121,7 @@ cmd_source_file_add(struct cmd_source_file_data *cdata, const char *path)
 static enum cmd_retval
 cmd_source_file_exec(struct cmd *self, struct cmdq_item *item)
 {
+#ifndef _WIN32
 	struct args			*args = cmd_get_args(self);
 	struct cmd_source_file_data	*cdata;
 	struct client			*c = cmdq_get_client(item);
@@ -195,4 +195,5 @@ cmd_source_file_exec(struct cmd *self, struct cmdq_item *item)
 
 	free(cwd);
 	return (retval);
+#endif
 }

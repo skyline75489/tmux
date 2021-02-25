@@ -149,6 +149,7 @@ int
 server_start(struct tmuxproc *client, int flags, struct event_base *base,
     int lockfd, char *lockfile)
 {
+#ifndef _WIN32
 	int		  fd;
 	sigset_t	  set, oldset;
 	struct client	 *c = NULL;
@@ -217,6 +218,7 @@ server_start(struct tmuxproc *client, int flags, struct event_base *base,
 	job_kill_all();
 	status_prompt_save_history();
 
+#endif
 	exit(0);
 }
 
@@ -419,6 +421,7 @@ server_child_signal(void)
 	pid_t	 pid;
 
 	for (;;) {
+	#ifndef _WIN32
 		switch (pid = waitpid(WAIT_ANY, &status, WNOHANG|WUNTRACED)) {
 		case -1:
 			if (errno == ECHILD)
@@ -431,6 +434,7 @@ server_child_signal(void)
 			server_child_stopped(pid, status);
 		else if (WIFEXITED(status) || WIFSIGNALED(status))
 			server_child_exited(pid, status);
+	#endif
 	}
 }
 

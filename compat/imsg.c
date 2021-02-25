@@ -44,6 +44,7 @@ imsg_init(struct imsgbuf *ibuf, int fd)
 ssize_t
 imsg_read(struct imsgbuf *ibuf)
 {
+	#ifndef _WIN32
 	struct msghdr		 msg;
 	struct cmsghdr		*cmsg;
 	union {
@@ -116,6 +117,7 @@ again:
 fail:
 	free(ifd);
 	return (n);
+	#endif
 }
 
 ssize_t
@@ -183,6 +185,8 @@ int
 imsg_composev(struct imsgbuf *ibuf, uint32_t type, uint32_t peerid, pid_t pid,
     int fd, const struct iovec *iov, int iovcnt)
 {
+		#ifndef _WIN32
+
 	struct ibuf	*wbuf;
 	int		 i, datalen = 0;
 
@@ -201,6 +205,7 @@ imsg_composev(struct imsgbuf *ibuf, uint32_t type, uint32_t peerid, pid_t pid,
 	imsg_close(ibuf, wbuf);
 
 	return (1);
+	#endif
 }
 
 /* ARGSUSED */

@@ -423,6 +423,7 @@ window_resize(struct window *w, u_int sx, u_int sy, int xpixel, int ypixel)
 void
 window_pane_send_resize(struct window_pane *wp, int force)
 {
+	#ifndef _WIN32
 	struct window	*w = wp->window;
 	struct winsize	 ws;
 	u_int  		 sy;
@@ -454,6 +455,7 @@ window_pane_send_resize(struct window_pane *wp, int force)
 		if (errno != EINVAL && errno != ENXIO)
 #endif
 		fatal("ioctl failed");
+		#endif
 }
 
 int

@@ -74,14 +74,19 @@ job_run(const char *cmd, struct session *s, const char *cwd,
 	pid_t		 pid;
 	int		 nullfd, out[2], master;
 	const char	*home;
-	sigset_t	 set, oldset;
 	struct winsize	 ws;
+
+	env = environ_for_session(s, !cfg_finished);
+
+#ifdef _WIN32
+
+#else
+	sigset_t	 set, oldset;
 
 	/*
 	 * Do not set TERM during .tmux.conf, it is nice to be able to use
 	 * if-shell to decide on default-terminal based on outside TERM.
 	 */
-	env = environ_for_session(s, !cfg_finished);
 
 	sigfillset(&set);
 	sigprocmask(SIG_BLOCK, &set, &oldset);
@@ -178,6 +183,7 @@ fail:
 	sigprocmask(SIG_SETMASK, &oldset, NULL);
 	environ_free(env);
 	return (NULL);
+#endif
 }
 
 /* Kill and free an individual job. */
@@ -206,6 +212,7 @@ job_free(struct job *job)
 void
 job_resize(struct job *job, u_int sx, u_int sy)
 {
+	#ifndef _WIN32
 	struct winsize	 ws;
 
 	if (job->fd == -1 || (~job->flags & JOB_PTY))
@@ -218,6 +225,7 @@ job_resize(struct job *job, u_int sx, u_int sy)
 	ws.ws_row = sy;
 	if (ioctl(job->fd, TIOCSWINSZ, &ws) == -1)
 		fatal("ioctl failed");
+	#endif
 }
 
 /* Job buffer read callback. */

@@ -17,8 +17,6 @@
  */
 
 #include <sys/types.h>
-#include <sys/queue.h>
-#include <sys/utsname.h>
 
 #include <errno.h>
 #include <signal.h>
@@ -179,6 +177,7 @@ proc_send(struct tmuxpeer *peer, enum msgtype type, int fd, const void *buf,
 struct tmuxproc *
 proc_start(const char *name)
 {
+	#ifndef _WIN32
 	struct tmuxproc	*tp;
 	struct utsname	 u;
 
@@ -209,6 +208,7 @@ proc_start(const char *name)
 	TAILQ_INIT(&tp->peers);
 
 	return (tp);
+	#endif
 }
 
 void
@@ -234,6 +234,7 @@ proc_exit(struct tmuxproc *tp)
 void
 proc_set_signals(struct tmuxproc *tp, void (*signalcb)(int))
 {
+#ifndef _WIN32
 	struct sigaction	sa;
 
 	tp->signalcb = signalcb;
@@ -248,7 +249,7 @@ proc_set_signals(struct tmuxproc *tp, void (*signalcb)(int))
 	sigaction(SIGTTIN, &sa, NULL);
 	sigaction(SIGTTOU, &sa, NULL);
 	sigaction(SIGQUIT, &sa, NULL);
-
+#endif
 	signal_set(&tp->ev_sigint, SIGINT, proc_signal_cb, tp);
 	signal_add(&tp->ev_sigint, NULL);
 	signal_set(&tp->ev_sighup, SIGHUP, proc_signal_cb, tp);
@@ -270,6 +271,7 @@ proc_set_signals(struct tmuxproc *tp, void (*signalcb)(int))
 void
 proc_clear_signals(struct tmuxproc *tp, int defaults)
 {
+#ifndef _WIN32
 	struct sigaction	sa;
 
 	memset(&sa, 0, sizeof sa);
@@ -279,15 +281,6 @@ proc_clear_signals(struct tmuxproc *tp, int defaults)
 
 	sigaction(SIGPIPE, &sa, NULL);
 	sigaction(SIGTSTP, &sa, NULL);
-
-	signal_del(&tp->ev_sigint);
-	signal_del(&tp->ev_sighup);
-	signal_del(&tp->ev_sigchld);
-	signal_del(&tp->ev_sigcont);
-	signal_del(&tp->ev_sigterm);
-	signal_del(&tp->ev_sigusr1);
-	signal_del(&tp->ev_sigusr2);
-	signal_del(&tp->ev_sigwinch);
 
 	if (defaults) {
 		sigaction(SIGINT, &sa, NULL);
@@ -300,6 +293,16 @@ proc_clear_signals(struct tmuxproc *tp, int defaults)
 		sigaction(SIGUSR2, &sa, NULL);
 		sigaction(SIGWINCH, &sa, NULL);
 	}
+#endif
+
+	signal_del(&tp->ev_sigint);
+	signal_del(&tp->ev_sighup);
+	signal_del(&tp->ev_sigchld);
+	signal_del(&tp->ev_sigcont);
+	signal_del(&tp->ev_sigterm);
+	signal_del(&tp->ev_sigusr1);
+	signal_del(&tp->ev_sigusr2);
+	signal_del(&tp->ev_sigwinch);
 }
 
 struct tmuxpeer *
@@ -352,6 +355,7 @@ proc_toggle_log(struct tmuxproc *tp)
 pid_t
 proc_fork_and_daemon(int *fd)
 {
+#ifndef _WIN32
 	pid_t	pid;
 	int	pair[2];
 
@@ -371,4 +375,5 @@ proc_fork_and_daemon(int *fd)
 		*fd = pair[0];
 		return (pid);
 	}
+#endif
 }

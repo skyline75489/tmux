@@ -23,7 +23,7 @@
 void fatal(const char *, ...);
 void fatalx(const char *, ...);
 
-#ifdef HAVE_PROC_PID
+#if defined(HAVE_PROC_PID) && !defined(_WIN32)
 int
 getdtablecount(void)
 {

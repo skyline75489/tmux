@@ -1,6 +1,7 @@
+/* $OpenBSD$ */
+
 /*
- * Copyright (c) 2013 Dagobert Michelsen
- * Copyright (c) 2013 Nicholas Marriott <nicholas.marriott@gmail.com>
+ * Copyright (c) 2009 Nicholas Marriott <nicholas.marriott@gmail.com>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -17,18 +18,22 @@
 
 #include <sys/types.h>
 
-#include <string.h>
+#include "tmux.h"
 
-#include "compat.h"
-
-void
-cfmakeraw(struct termios *tio)
+char *
+osdep_get_name(__unused int fd, __unused char *tty)
 {
-	#ifndef _WIN32
-	tio->c_iflag &= ~(IGNBRK|BRKINT|PARMRK|ISTRIP|INLCR|IGNCR|ICRNL|IXON);
-	tio->c_oflag &= ~OPOST;
-	tio->c_lflag &= ~(ECHO|ECHONL|ICANON|ISIG|IEXTEN);
-	tio->c_cflag &= ~(CSIZE|PARENB);
-	tio->c_cflag |= CS8;
-	#endif
+	return (NULL);
+}
+
+char *
+osdep_get_cwd(int fd)
+{
+	return (NULL);
+}
+
+struct event_base *
+osdep_event_init(void)
+{
+	return (event_init());
 }

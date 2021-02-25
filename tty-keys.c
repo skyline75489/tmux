@@ -802,9 +802,11 @@ complete_key:
 	 * kbs entry is extremely unreliable, so cannot be safely
 	 * used. termios should have a better idea.
 	 */
+#ifndef _WIN32
 	bspace = tty->tio.c_cc[VERASE];
 	if (bspace != _POSIX_VDISABLE && (key & KEYC_MASK_KEY) == bspace)
 		key = (key & KEYC_MASK_MODIFIERS)|KEYC_BSPACE;
+#endif
 
 	/* Remove data from buffer. */
 	evbuffer_drain(tty->in, size);

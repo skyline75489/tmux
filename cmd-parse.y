@@ -1463,6 +1463,8 @@ yylex_token_tilde(char **buf, size_t *len)
 	}
 	name[namelen] = '\0';
 
+#ifdef _WIN32
+#else
 	if (*name == '\0') {
 		envent = environ_find(global_environ, "HOME");
 		if (envent != NULL && *envent->value != '\0')
@@ -1473,6 +1475,7 @@ yylex_token_tilde(char **buf, size_t *len)
 		if ((pw = getpwnam(name)) != NULL)
 			home = pw->pw_dir;
 	}
+#endif
 	if (home == NULL)
 		return (0);
 

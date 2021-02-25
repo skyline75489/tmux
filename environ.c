@@ -207,6 +207,7 @@ environ_update(struct options *oo, struct environ *src, struct environ *dst)
 void
 environ_push(struct environ *env)
 {
+#ifndef _WIN32
 	struct environ_entry	*envent;
 
 	environ = xcalloc(1, sizeof *environ);
@@ -216,6 +217,7 @@ environ_push(struct environ *env)
 		    (~envent->flags & ENVIRON_HIDDEN))
 			setenv(envent->name, envent->value, 1);
 	}
+#endif
 }
 
 /* Log the environment. */

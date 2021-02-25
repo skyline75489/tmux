@@ -329,6 +329,7 @@ client_main(struct event_base *base, int argc, char **argv, uint64_t flags,
 	options_free(global_w_options);
 	environ_free(global_environ);
 
+#ifndef _WIN32
 	/* Set up control mode. */
 	if (client_flags & CLIENT_CONTROLCONTROL) {
 		if (tcgetattr(STDIN_FILENO, &saved_tio) != 0) {
@@ -349,7 +350,7 @@ client_main(struct event_base *base, int argc, char **argv, uint64_t flags,
 		cfsetospeed(&tio, cfgetospeed(&saved_tio));
 		tcsetattr(STDIN_FILENO, TCSANOW, &tio);
 	}
-
+#endif
 	/* Send identify messages. */
 	client_send_identify(ttynam, termname, caps, ncaps, cwd, feat);
 	tty_term_free_list(caps, ncaps);
@@ -391,7 +392,11 @@ client_main(struct event_base *base, int argc, char **argv, uint64_t flags,
 	/* Run command if user requested exec, instead of exiting. */
 	if (client_exittype == MSG_EXEC) {
 		if (client_flags & CLIENT_CONTROLCONTROL)
+#ifdef _WIN32
+		{}
+#else
 			tcsetattr(STDOUT_FILENO, TCSAFLUSH, &saved_tio);
+#endif
 		client_exec(client_execshell, client_execcmd);
 	}
 
@@ -426,7 +431,9 @@ client_main(struct event_base *base, int argc, char **argv, uint64_t flags,
 		if (client_flags & CLIENT_CONTROLCONTROL) {
 			printf("\033\\");
 			fflush(stdout);
+#ifndef _WIN32
 			tcsetattr(STDOUT_FILENO, TCSAFLUSH, &saved_tio);
+#endif
 		}
 	} else if (client_exitreason != CLIENT_EXIT_NONE)
 		fprintf(stderr, "%s\n", client_exit_message());
@@ -471,7 +478,11 @@ client_send_identify(const char *ttynam, const char *termname, char **caps,
 	pid = getpid();
 	proc_send(client_peer, MSG_IDENTIFY_CLIENTPID, -1, &pid, sizeof pid);
 
+#ifdef _WIN32
+	for (ss = _environ; *ss != NULL; ss++) {
+#else
 	for (ss = environ; *ss != NULL; ss++) {
+#endif
 		sslen = strlen(*ss) + 1;
 		if (sslen > MAX_IMSGSIZE - IMSG_HEADER_SIZE)
 			continue;
@@ -516,12 +527,18 @@ client_exec(const char *shell, const char *shellcmd)
 static void
 client_signal(int sig)
 {
+#ifndef _WIN32
 	struct sigaction sigact;
+#endif
 	int		 status;
 
 	log_debug("%s: %s", __func__, strsignal(sig));
 	if (sig == SIGCHLD)
+#ifdef _WIN32
+	{}
+#else
 		waitpid(WAIT_ANY, &status, WNOHANG);
+#endif
 	else if (!client_attached) {
 		if (sig == SIGTERM)
 			proc_exit(client_proc);
@@ -542,6 +559,7 @@ client_signal(int sig)
 			proc_send(client_peer, MSG_RESIZE, -1, NULL, 0);
 			break;
 		case SIGCONT:
+#ifndef _WIN32
 			memset(&sigact, 0, sizeof sigact);
 			sigemptyset(&sigact.sa_mask);
 			sigact.sa_flags = SA_RESTART;
@@ -550,6 +568,7 @@ client_signal(int sig)
 				fatal("sigaction failed");
 			proc_send(client_peer, MSG_WAKEUP, -1, NULL, 0);
 			client_suspended = 0;
+#endif
 			break;
 		}
 	}
@@ -709,7 +728,9 @@ client_dispatch_wait(struct imsg *imsg)
 static void
 client_dispatch_attached(struct imsg *imsg)
 {
+#ifndef _WIN32
 	struct sigaction	 sigact;
+#endif
 	char			*data;
 	ssize_t			 datalen;
 
@@ -768,6 +789,7 @@ client_dispatch_attached(struct imsg *imsg)
 		client_exitreason = CLIENT_EXIT_SERVER_EXITED;
 		client_exitval = 1;
 		break;
+#ifndef _WIN32
 	case MSG_SUSPEND:
 		if (datalen != 0)
 			fatalx("bad MSG_SUSPEND size");
@@ -781,6 +803,7 @@ client_dispatch_attached(struct imsg *imsg)
 		client_suspended = 1;
 		kill(getpid(), SIGTSTP);
 		break;
+#endif
 	case MSG_LOCK:
 		if (datalen == 0 || data[datalen - 1] != '\0')
 			fatalx("bad MSG_LOCK string");

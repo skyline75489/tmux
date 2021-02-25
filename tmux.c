@@ -18,11 +18,9 @@
 
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <sys/utsname.h>
 
 #include <errno.h>
 #include <fcntl.h>
-#include <langinfo.h>
 #include <locale.h>
 #include <signal.h>
 #include <stdlib.h>
@@ -61,6 +59,9 @@ usage(void)
 static const char *
 getshell(void)
 {
+#ifdef _WIN32
+	return (_PATH_POWERSHELL);
+#else
 	struct passwd	*pw;
 	const char	*shell;
 
@@ -73,6 +74,7 @@ getshell(void)
 		return (pw->pw_shell);
 
 	return (_PATH_BSHELL);
+#endif
 }
 
 int
@@ -185,6 +187,7 @@ expand_paths(const char *s, char ***paths, u_int *n, int ignore_errors)
 static char *
 make_label(const char *label, char **cause)
 {
+	#ifndef _WIN32
 	char		**paths, *path, *base;
 	u_int		  i, n;
 	struct stat	  sb;
@@ -226,11 +229,13 @@ fail:
 	xasprintf(cause, "error creating %s (%s)", base, strerror(errno));
 	free(base);
 	return (NULL);
+	#endif
 }
 
 void
 setblocking(int fd, int state)
 {
+	#ifndef _WIN32
 	int mode;
 
 	if ((mode = fcntl(fd, F_GETFL)) != -1) {
@@ -240,6 +245,7 @@ setblocking(int fd, int state)
 			mode &= ~O_NONBLOCK;
 		fcntl(fd, F_SETFL, mode);
 	}
+	#endif
 }
 
 uint64_t
@@ -304,6 +310,7 @@ find_home(void)
 		return (home);
 
 	home = getenv("HOME");
+#ifndef _WIN32
 	if (home == NULL || *home == '\0') {
 		pw = getpwuid(getuid());
 		if (pw != NULL)
@@ -311,7 +318,7 @@ find_home(void)
 		else
 			home = NULL;
 	}
-
+#endif
 	return (home);
 }
 
@@ -336,9 +343,11 @@ main(int argc, char **argv)
 	    setlocale(LC_CTYPE, "C.UTF-8") == NULL) {
 		if (setlocale(LC_CTYPE, "") == NULL)
 			errx(1, "invalid LC_ALL, LC_CTYPE or LANG");
+#ifndef _WIN32
 		s = nl_langinfo(CODESET);
 		if (strcasecmp(s, "UTF-8") != 0 && strcasecmp(s, "UTF8") != 0)
 			errx(1, "need UTF-8 locale (LC_CTYPE) but have %s", s);
+#endif
 	}
 
 	setlocale(LC_TIME, "");
@@ -348,7 +357,11 @@ main(int argc, char **argv)
 		flags = CLIENT_LOGIN;
 
 	global_environ = environ_create();
+#ifdef _WIN32
+	for (var = _environ; *var != NULL; var++)
+#else
 	for (var = environ; *var != NULL; var++)
+#endif
 		environ_put(global_environ, *var, 0);
 	if ((cwd = find_cwd()) != NULL)
 		environ_set(global_environ, "PWD", 0, "%s", cwd);

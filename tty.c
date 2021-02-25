@@ -17,7 +17,6 @@
  */
 
 #include <sys/types.h>
-#include <sys/ioctl.h>
 
 
 #include <curses.h>
@@ -77,6 +76,7 @@ static void	tty_default_attributes(struct tty *, const struct grid_cell *,
 void
 tty_create_log(void)
 {
+	#ifndef _WIN32
 	char	name[64];
 
 	xsnprintf(name, sizeof name, "tmux-out-%ld.log", (long)getpid());
@@ -84,6 +84,7 @@ tty_create_log(void)
 	tty_log_fd = open(name, O_WRONLY|O_CREAT|O_TRUNC, 0644);
 	if (tty_log_fd != -1 && fcntl(tty_log_fd, F_SETFD, FD_CLOEXEC) == -1)
 		fatal("fcntl failed");
+		#endif
 }
 
 int
@@ -106,6 +107,7 @@ tty_init(struct tty *tty, struct client *c)
 void
 tty_resize(struct tty *tty)
 {
+	#ifndef _WIN32
 	struct client	*c = tty->client;
 	struct winsize	 ws;
 	u_int		 sx, sy, xpixel, ypixel;
@@ -133,6 +135,7 @@ tty_resize(struct tty *tty)
 	    xpixel, ypixel);
 	tty_set_size(tty, sx, sy, xpixel, ypixel);
 	tty_invalidate(tty);
+	#endif
 }
 
 void
@@ -291,6 +294,7 @@ tty_start_timer_callback(__unused int fd, __unused short events, void *data)
 void
 tty_start_tty(struct tty *tty)
 {
+	#ifndef _WIN32
 	struct client	*c = tty->client;
 	struct termios	 tio;
 	struct timeval	 tv = { .tv_sec = 1 };
@@ -338,6 +342,7 @@ tty_start_tty(struct tty *tty)
 	tty->mouse_drag_flag = 0;
 	tty->mouse_drag_update = NULL;
 	tty->mouse_drag_release = NULL;
+	#endif
 }
 
 void
@@ -358,6 +363,7 @@ tty_send_requests(struct tty *tty)
 void
 tty_stop_tty(struct tty *tty)
 {
+	#ifndef _WIN32
 	struct client	*c = tty->client;
 	struct winsize	 ws;
 
@@ -416,6 +422,7 @@ tty_stop_tty(struct tty *tty)
 	tty_raw(tty, tty_term_string(tty->term, TTYC_RMCUP));
 
 	setblocking(c->fd, 1);
+	#endif
 }
 
 void

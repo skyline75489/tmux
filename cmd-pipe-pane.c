@@ -64,8 +64,9 @@ cmd_pipe_pane_exec(struct cmd *self, struct cmdq_item *item)
 	char				*cmd;
 	int				 old_fd, pipe_fd[2], null_fd, in, out;
 	struct format_tree		*ft;
+#ifndef _WIN32
 	sigset_t			 set, oldset;
-
+#endif
 	/* Destroy the old pipe. */
 	old_fd = wp->pipe_fd;
 	if (wp->pipe_fd != -1) {
@@ -113,6 +114,7 @@ cmd_pipe_pane_exec(struct cmd *self, struct cmdq_item *item)
 	cmd = format_expand_time(ft, args->argv[0]);
 	format_free(ft);
 
+#ifndef _WIN32
 	/* Fork the child. */
 	sigfillset(&set);
 	sigprocmask(SIG_BLOCK, &set, &oldset);
@@ -176,6 +178,7 @@ cmd_pipe_pane_exec(struct cmd *self, struct cmdq_item *item)
 		free(cmd);
 		return (CMD_RETURN_NORMAL);
 	}
+#endif
 }
 
 static void
