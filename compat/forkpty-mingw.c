@@ -24,7 +24,7 @@ void fatalx(const char *, ...);
 pid_t
 forkpty(int *master, char *name, struct termios *tio, struct winsize *ws)
 {
-	HRESULT hr = S_OK;
+    HRESULT hr = S_OK;
 
     // Create communication channels
 
@@ -45,27 +45,38 @@ forkpty(int *master, char *name, struct termios *tio, struct winsize *ws)
     }
 
     HPCON hPC;
-	COORD size;
-	size.X = ws->ws_col;
-	size.Y = ws->ws_row;
+    COORD size;
+    size.X = ws->ws_col;
+    size.Y = ws->ws_row;
     hr = CreatePseudoConsole(size, inputReadSide, outputWriteSide, 0, &hPC);
     if (FAILED(hr))
     {
         return (-1);
     }
 
-	return (-1);
-}
+    PCWSTR childApplication = L"C:\\windows\\system32\\cmd.exe";
 
-HRESULT PrepareStartupInformation(HPCON hpc, STARTUPINFOEX* psi)
-{
+    // Create mutable text string for CreateProcessW command line string.
+    const size_t charsRequired = wcslen(childApplication) + 1; // +1 null terminator
+    PWSTR cmdLineMutable = (PWSTR)HeapAlloc(GetProcessHeap(), 0, sizeof(wchar_t) * charsRequired);
+
+    if (!cmdLineMutable)
+    {
+        return E_OUTOFMEMORY;
+    }
+
+    wcscpy_s(cmdLineMutable, charsRequired, childApplication);
+
+    PROCESS_INFORMATION pi;
+    ZeroMemory(&pi, sizeof(pi));
+
     // Prepare Startup Information structure
     STARTUPINFOEX si;
     ZeroMemory(&si, sizeof(si));
     si.StartupInfo.cb = sizeof(STARTUPINFOEX);
 
     // Discover the size required for the list
-    size_t bytesRequired;
+    size_t bytesRequired = 0;
     InitializeProcThreadAttributeList(NULL, 1, 0, &bytesRequired);
 
     // Allocate memory to represent the list
@@ -84,18 +95,32 @@ HRESULT PrepareStartupInformation(HPCON hpc, STARTUPINFOEX* psi)
 
     // Set the pseudoconsole information into the list
     if (!UpdateProcThreadAttribute(si.lpAttributeList,
-                                   0,
-                                   PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE,
-                                   hpc,
-                                   sizeof(hpc),
-                                   NULL,
-                                   NULL))
+        0,
+        PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE,
+        hPC,
+        sizeof(hPC),
+        NULL,
+        NULL))
     {
         HeapFree(GetProcessHeap(), 0, si.lpAttributeList);
         return HRESULT_FROM_WIN32(GetLastError());
     }
 
-    *psi = si;
+    // Call CreateProcess
+    if (!CreateProcessW(NULL,
+        cmdLineMutable,
+        NULL,
+        NULL,
+        FALSE,
+        EXTENDED_STARTUPINFO_PRESENT,
+        NULL,
+        NULL,
+        &si.StartupInfo,
+        &pi))
+    {
+        HeapFree(GetProcessHeap(), 0, cmdLineMutable);
+        return HRESULT_FROM_WIN32(GetLastError());
+    }
 
-    return S_OK;
+	return (-1);
 }

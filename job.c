@@ -190,6 +190,8 @@ fail:
 void
 job_free(struct job *job)
 {
+		#ifndef _WIN32
+
 	log_debug("free job %p: %s", job, job->cmd);
 
 	LIST_REMOVE(job, entry);
@@ -206,6 +208,7 @@ job_free(struct job *job)
 		close(job->fd);
 
 	free(job);
+	#endif 
 }
 
 /* Resize job. */

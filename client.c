@@ -118,11 +118,17 @@ retry:
 	if ((fd = socket(AF_UNIX, SOCK_STREAM, 0)) == -1)
 		return (-1);
 
-	log_debug("trying connect");
+	log_debug("trying connect\n");
 	if (connect(fd, (struct sockaddr *)&sa, sizeof sa) == -1) {
+		#ifdef _WIN32
+		errno = WSAGetLastError();
+		log_debug("connect failed: %d", errno);
+		if (errno != WSAECONNREFUSED && errno != WSAENOTCONN)
+		#else
 		log_debug("connect failed: %s", strerror(errno));
 		if (errno != ECONNREFUSED && errno != ENOENT)
 			goto failed;
+		#endif
 		if (flags & CLIENT_NOSTARTSERVER)
 			goto failed;
 		if (~flags & CLIENT_STARTSERVER)
@@ -292,8 +298,10 @@ client_main(struct event_base *base, int argc, char **argv, uint64_t flags,
 	/* Save these before pledge(). */
 	if ((cwd = find_cwd()) == NULL && (cwd = find_home()) == NULL)
 		cwd = "/";
+#ifndef _WIN32
 	if ((ttynam = ttyname(STDIN_FILENO)) == NULL)
 		ttynam = "";
+#endif
 	if ((termname = getenv("TERM")) == NULL)
 		termname = "";
 
@@ -409,10 +417,11 @@ client_main(struct event_base *base, int argc, char **argv, uint64_t flags,
 	if (client_attached) {
 		if (client_exitreason != CLIENT_EXIT_NONE)
 			printf("[%s]\n", client_exit_message());
-
+#ifndef _WIN32
 		ppid = getppid();
 		if (client_exittype == MSG_DETACHKILL && ppid > 1)
 			kill(ppid, SIGHUP);
+#endif
 	} else if (client_flags & CLIENT_CONTROL) {
 		if (client_exitreason != CLIENT_EXIT_NONE)
 			printf("%%exit %s\n", client_exit_message());
@@ -532,7 +541,7 @@ client_signal(int sig)
 #endif
 	int		 status;
 
-	log_debug("%s: %s", __func__, strsignal(sig));
+	//log_debug("%s: %s", __func__, strsignal(sig));
 	if (sig == SIGCHLD)
 #ifdef _WIN32
 	{}

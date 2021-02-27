@@ -103,11 +103,12 @@ cmd_pipe_pane_exec(struct cmd *self, struct cmdq_item *item)
 	}
 
 	/* Open the new pipe. */
+	#ifndef _WIN32
 	if (socketpair(AF_UNIX, SOCK_STREAM, PF_UNSPEC, pipe_fd) != 0) {
 		cmdq_error(item, "socketpair error: %s", strerror(errno));
 		return (CMD_RETURN_ERROR);
 	}
-
+#endif
 	/* Expand the command. */
 	ft = format_create(cmdq_get_client(item), item, FORMAT_NONE, 0);
 	format_defaults(ft, tc, s, wl, wp);

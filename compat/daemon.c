@@ -43,8 +43,8 @@ extern void daemon_darwin(void);
 int
 daemon(int nochdir, int noclose)
 {
+	#ifndef _WIN32
 	int fd;
-
 	switch (fork()) {
 	case -1:
 		return (-1);
@@ -72,4 +72,5 @@ daemon(int nochdir, int noclose)
 	daemon_darwin();
 #endif
 	return (0);
+	#endif
 }

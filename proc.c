@@ -177,19 +177,21 @@ proc_send(struct tmuxpeer *peer, enum msgtype type, int fd, const void *buf,
 struct tmuxproc *
 proc_start(const char *name)
 {
-	#ifndef _WIN32
 	struct tmuxproc	*tp;
+#ifndef _WIN32
 	struct utsname	 u;
-
-	log_open(name);
-	setproctitle("%s (%s)", name, socket_path);
 
 	if (uname(&u) < 0)
 		memset(&u, 0, sizeof u);
 
+	#endif
+
+	log_open(name);
+	setproctitle("%s (%s)", name, socket_path);
+
 	log_debug("%s started (%ld): version %s, socket %s, protocol %d", name,
 	    (long)getpid(), getversion(), socket_path, PROTOCOL_VERSION);
-	log_debug("on %s %s %s", u.sysname, u.release, u.version);
+	// log_debug("on %s %s %s", u.sysname, u.release, u.version);
 	log_debug("using libevent %s (%s)"
 #ifdef HAVE_UTF8PROC
 	    "; utf8proc %s"
@@ -208,7 +210,6 @@ proc_start(const char *name)
 	TAILQ_INIT(&tp->peers);
 
 	return (tp);
-	#endif
 }
 
 void

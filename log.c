@@ -59,11 +59,12 @@ log_open(const char *name)
 {
 	char	*path;
 
-	if (log_level == 0)
-		return;
+	// if (log_level == 0)
+	// 	return;
 	log_close();
 
 	xasprintf(&path, "tmux-%s-%ld.log", name, (long)getpid());
+	printf("LogPath: %s", path);
 	log_file = fopen(path, "a");
 	free(path);
 	if (log_file == NULL)

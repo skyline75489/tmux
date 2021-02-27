@@ -199,8 +199,7 @@ spawn_window(struct spawn_context *sc, char **cause)
 
 struct window_pane *
 spawn_pane(struct spawn_context *sc, char **cause)
-{
-	#ifndef _WIN32
+{	
 	struct cmdq_item	 *item = sc->item;
 	struct cmd_find_state	 *target = cmdq_get_target(item);
 	struct client		 *c = cmdq_get_client(item);
@@ -216,7 +215,9 @@ spawn_pane(struct spawn_context *sc, char **cause)
 	struct termios		  now;
 	u_int			  hlimit;
 	struct winsize		  ws;
+	#ifndef _WIN32
 	sigset_t		  set, oldset;
+	#endif
 	key_code		  key;
 
 	spawn_log(__func__, sc);
@@ -344,9 +345,10 @@ spawn_pane(struct spawn_context *sc, char **cause)
 	ws.ws_ypixel = w->ypixel * ws.ws_row;
 
 	/* Block signals until fork has completed. */
+	#ifndef _WIN32
 	sigfillset(&set);
 	sigprocmask(SIG_BLOCK, &set, &oldset);
-
+	#endif
 	/* If the command is empty, don't fork a child process. */
 	if (sc->flags & SPAWN_EMPTY) {
 		new_wp->flags |= PANE_EMPTY;
@@ -356,7 +358,11 @@ spawn_pane(struct spawn_context *sc, char **cause)
 	}
 
 	/* Fork the new process. */
+#ifdef _WIN32
+	new_wp->pid = fdforkpty(ptm_fd, &new_wp->pi, new_wp->tty, NULL, &ws);
+#else 
 	new_wp->pid = fdforkpty(ptm_fd, &new_wp->fd, new_wp->tty, NULL, &ws);
+#endif
 	if (new_wp->pid == -1) {
 		xasprintf(cause, "fork failed: %s", strerror(errno));
 		new_wp->fd = -1;
@@ -365,7 +371,9 @@ spawn_pane(struct spawn_context *sc, char **cause)
 			layout_close_pane(new_wp);
 			window_remove_pane(w, new_wp);
 		}
+#ifndef _WIN32
 		sigprocmask(SIG_SETMASK, &oldset, NULL);
+#endif
 		environ_free(child);
 		return (NULL);
 	}
@@ -387,6 +395,7 @@ spawn_pane(struct spawn_context *sc, char **cause)
 	 * Update terminal escape characters from the session if available and
 	 * force VERASE to tmux's backspace.
 	 */
+#ifndef _WIN32
 	if (tcgetattr(STDIN_FILENO, &now) != 0)
 		_exit(1);
 	if (s->tio != NULL)
@@ -401,14 +410,13 @@ spawn_pane(struct spawn_context *sc, char **cause)
 #endif
 	if (tcsetattr(STDIN_FILENO, TCSANOW, &now) != 0)
 		_exit(1);
-
 	/* Clean up file descriptors and signals and update the environment. */
 	closefrom(STDERR_FILENO + 1);
 	proc_clear_signals(server_proc, 1);
 	sigprocmask(SIG_SETMASK, &oldset, NULL);
 	log_close();
 	environ_push(child);
-
+#endif
 	/*
 	 * If given multiple arguments, use execvp(). Copy the arguments to
 	 * ensure they end in a NULL.
@@ -452,7 +460,9 @@ complete:
 
 	new_wp->flags &= ~PANE_EXITED;
 
+#ifndef _WIN32
 	sigprocmask(SIG_SETMASK, &oldset, NULL);
+#endif
 	window_pane_set_event(new_wp);
 
 	environ_free(child);
@@ -468,5 +478,4 @@ complete:
 	if (~sc->flags & SPAWN_NONOTIFY)
 		notify_window("window-layout-changed", w);
 	return (new_wp);
-#endif
 }

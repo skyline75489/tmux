@@ -113,6 +113,11 @@ expand_path(const char *path, const char *home)
 	const char		*end;
 	struct environ_entry	*value;
 
+#ifdef _WIN32
+	expanded = xcalloc(1, PATH_MAX);
+	ExpandEnvironmentStringsA(path, expanded, PATH_MAX);
+	return (expanded);
+#else
 	if (strncmp(path, "~/", 2) == 0) {
 		if (home == NULL)
 			return (NULL);
@@ -135,7 +140,7 @@ expand_path(const char *path, const char *home)
 		xasprintf(&expanded, "%s%s", value->value, end);
 		return (expanded);
 	}
-
+#endif
 	return (xstrdup(path));
 }
 
@@ -149,7 +154,6 @@ expand_paths(const char *s, char ***paths, u_int *n, int ignore_errors)
 
 	*paths = NULL;
 	*n = 0;
-
 	copy = tmp = xstrdup(s);
 	while ((next = strsep(&tmp, ":")) != NULL) {
 		expanded = expand_path(next, home);
@@ -184,10 +188,43 @@ expand_paths(const char *s, char ***paths, u_int *n, int ignore_errors)
 	free(copy);
 }
 
+#ifdef _WIN32
 static char *
 make_label(const char *label, char **cause)
 {
-	#ifndef _WIN32
+	char		**paths, *path, *base;
+	u_int		  i, n;
+
+	*cause = NULL;
+	if (label == NULL)
+		label = "default";
+
+	expand_paths(TMUX_SOCK, &paths, &n, 1);
+	if (n == 0) {
+		xasprintf(cause, "no suitable socket path");
+		return (NULL);
+	}
+	path = paths[0]; /* can only have one socket! */
+	for (i = 1; i < n; i++)
+		free(paths[i]);
+	free(paths);
+
+	xasprintf(&base, "%stmux-%ld", path, 0);
+	if (mkdir(base) != 0 && errno != EEXIST)
+		goto fail;
+	xasprintf(&path, "%s/%s", base, label);
+	free(base);
+	return (path);
+fail:
+	xasprintf(cause, "error creating %s (%s)", base, strerror(errno));
+	free(base);
+	return (NULL);
+}
+
+#else
+static char *
+make_label(const char *label, char **cause)
+{
 	char		**paths, *path, *base;
 	u_int		  i, n;
 	struct stat	  sb;
@@ -229,8 +266,8 @@ fail:
 	xasprintf(cause, "error creating %s (%s)", base, strerror(errno));
 	free(base);
 	return (NULL);
-	#endif
 }
+#endif
 
 void
 setblocking(int fd, int state)
@@ -470,7 +507,6 @@ main(int argc, char **argv)
 		if (oe->scope & OPTIONS_TABLE_WINDOW)
 			options_default(global_w_options, oe);
 	}
-
 	/*
 	 * The default shell comes from SHELL or from the user's passwd entry
 	 * if available.
@@ -516,6 +552,19 @@ main(int argc, char **argv)
 	socket_path = path;
 	free(label);
 
+#ifdef _WIN32
+    WORD wVersionRequested;
+    WSADATA wsaData;
+    int err;
+
+    wVersionRequested = MAKEWORD(2, 2);
+
+    err = WSAStartup(wVersionRequested, &wsaData);
+    if (err != 0) {
+		errx(1, "WSAStartup failed with error: %d\n", err);
+		exit(1);
+    }
+#endif
 	/* Pass control to the client. */
 	exit(client_main(osdep_event_init(), argc, argv, flags, feat));
 }

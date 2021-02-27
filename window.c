@@ -363,7 +363,7 @@ int
 window_pane_destroy_ready(struct window_pane *wp)
 {
 	int	n;
-
+#ifndef _WIN32
 	if (wp->pipe_fd != -1) {
 		if (EVBUFFER_LENGTH(wp->pipe_event->output) != 0)
 			return (0);
@@ -374,6 +374,7 @@ window_pane_destroy_ready(struct window_pane *wp)
 	if (~wp->flags & PANE_EXITED)
 		return (0);
 	return (1);
+#endif
 }
 
 void

@@ -72,11 +72,18 @@ struct winlink;
 #define PROTOCOL_VERSION 8
 
 /* Default configuration files and socket paths. */
+#ifdef _WIN32
+#undef TMUX_CONF
+#define TMUX_CONF "%USERPROFILE%/.tmux.conf"
+#define TMUX_SOCK _PATH_TMP
+#else
+
 #ifndef TMUX_CONF
 #define TMUX_CONF "/etc/tmux.conf:~/.tmux.conf"
 #endif
 #ifndef TMUX_SOCK
 #define TMUX_SOCK "$TMUX_TMPDIR:" _PATH_TMP
+#endif
 #endif
 
 /* Minimum layout cell size, NOT including border lines. */
@@ -969,11 +976,17 @@ struct window_pane {
 	char		*shell;
 	char		*cwd;
 
+#if _WIN32
+	PROCESS_INFORMATION pi;
+	HANDLE outputReadHandle;
+	HANDLE inputWriteHandle;
+	HPCON pseudoConsole;
+#endif
 	pid_t		 pid;
-	char		 tty[TTY_NAME_MAX];
+	char		 tty[TTY_NAME_MAX]; // TODO: make this ttyname
 	int		 status;
-
 	int		 fd;
+
 	struct bufferevent *event;
 
 	struct window_pane_offset offset;

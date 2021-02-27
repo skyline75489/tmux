@@ -173,8 +173,10 @@ cmd_new_session_exec(struct cmd *self, struct cmdq_item *item)
 			    "unset $TMUX to force");
 			goto fail;
 		}
+	#ifndef _WIN32
 		if (tcgetattr(c->fd, &tio) != 0)
 			fatal("tcgetattr failed");
+		#endif
 		tiop = &tio;
 	} else
 		tiop = NULL;

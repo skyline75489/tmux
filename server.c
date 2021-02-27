@@ -149,12 +149,12 @@ int
 server_start(struct tmuxproc *client, int flags, struct event_base *base,
     int lockfd, char *lockfile)
 {
-#ifndef _WIN32
 	int		  fd;
-	sigset_t	  set, oldset;
 	struct client	 *c = NULL;
 	char		 *cause = NULL;
 
+#ifndef _WIN32
+	sigset_t	  set, oldset;
 	sigfillset(&set);
 	sigprocmask(SIG_BLOCK, &set, &oldset);
 
@@ -165,14 +165,17 @@ server_start(struct tmuxproc *client, int flags, struct event_base *base,
 		}
 	}
 	proc_clear_signals(client, 0);
+#endif
 	server_client_flags = flags;
 
 	if (event_reinit(base) != 0)
 		fatalx("event_reinit failed");
 	server_proc = proc_start("server");
 
+#ifndef _WIN32
 	proc_set_signals(server_proc, server_signal);
 	sigprocmask(SIG_SETMASK, &oldset, NULL);
+#endif
 
 	if (log_get_level() > 1)
 		tty_create_log();
@@ -218,7 +221,6 @@ server_start(struct tmuxproc *client, int flags, struct event_base *base,
 	job_kill_all();
 	status_prompt_save_history();
 
-#endif
 	exit(0);
 }
 
@@ -387,7 +389,7 @@ server_signal(int sig)
 {
 	int	fd;
 
-	log_debug("%s: %s", __func__, strsignal(sig));
+	//log_debug("%s: %s", __func__, strsignal(sig));
 	switch (sig) {
 	case SIGINT:
 	case SIGTERM:

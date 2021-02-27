@@ -709,6 +709,10 @@ AM_CONDITIONAL(IS_MINGW, test "x$PLATFORM" = xmingw)
 AM_CONDITIONAL(IS_HAIKU, test "x$PLATFORM" = xhaiku)
 AM_CONDITIONAL(IS_UNKNOWN, test "x$PLATFORM" = xunknown)
 
+if test "x$PLATFORM" = xmingw; then
+	LIBS="$LIBS -lws2_32"
+fi
+
 # Save our CFLAGS/CPPFLAGS/LDFLAGS for the Makefile and restore the old user
 # variables.
 AC_SUBST(AM_CPPFLAGS)

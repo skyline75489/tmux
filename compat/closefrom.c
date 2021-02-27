@@ -75,7 +75,7 @@ closefrom_fallback(int lowfd)
 #ifdef HAVE_SYSCONF
 	maxfd = sysconf(_SC_OPEN_MAX);
 #else
-	maxfd = getdtablesize();
+	// maxfd = getdtablesize();
 #endif /* HAVE_SYSCONF */
 	if (maxfd < 0)
 		maxfd = OPEN_MAX;

@@ -54,8 +54,10 @@ const struct cmd_entry cmd_start_server_entry = {
 static enum cmd_retval
 cmd_kill_server_exec(struct cmd *self, __unused struct cmdq_item *item)
 {
+		#ifndef _WIN32
+
 	if (cmd_get_entry(self) == &cmd_kill_server_entry)
 		kill(getpid(), SIGTERM);
-
+#endif
 	return (CMD_RETURN_NORMAL);
 }
