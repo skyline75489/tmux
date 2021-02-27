@@ -437,61 +437,7 @@ fi
 # Check for CMSG_DATA. On some platforms like HP-UX this requires UNIX 95
 # (_XOPEN_SOURCE and _XOPEN_SOURCE_EXTENDED) (see xopen_networking(7)). On
 # others, UNIX 03 (_XOPEN_SOURCE 600, see standards(7) on Solaris).
-XOPEN_DEFINES=
-AC_MSG_CHECKING(for CMSG_DATA)
-AC_EGREP_CPP(
-	yes,
-	[
-		#include <sys/socket.h>
-		#ifdef CMSG_DATA
-		yes
-		#endif
-	],
-	found_cmsg_data=yes,
-	found_cmsg_data=no
-)
-AC_MSG_RESULT($found_cmsg_data)
-if test "x$found_cmsg_data" = xno; then
-	AC_MSG_CHECKING(if CMSG_DATA needs _XOPEN_SOURCE_EXTENDED)
-	AC_EGREP_CPP(
-		yes,
-		[
-			#define _XOPEN_SOURCE 1
-			#define _XOPEN_SOURCE_EXTENDED 1
-			#include <sys/socket.h>
-			#ifdef CMSG_DATA
-			yes
-			#endif
-		],
-		found_cmsg_data=yes,
-		found_cmsg_data=no
-	)
-	AC_MSG_RESULT($found_cmsg_data)
-	if test "x$found_cmsg_data" = xyes; then
-		XOPEN_DEFINES="-D_XOPEN_SOURCE -D_XOPEN_SOURCE_EXTENDED"
-	fi
-fi
-if test "x$found_cmsg_data" = xno; then
-	AC_MSG_CHECKING(if CMSG_DATA needs _XOPEN_SOURCE 600)
-	AC_EGREP_CPP(
-		yes,
-		[
-			#define _XOPEN_SOURCE 600
-			#include <sys/socket.h>
-			#ifdef CMSG_DATA
-			yes
-			#endif
-		],
-		found_cmsg_data=yes,
-		found_cmsg_data=no
-	)
-	AC_MSG_RESULT($found_cmsg_data)
-	if test "x$found_cmsg_data" = xyes; then
-		XOPEN_DEFINES="-D_XOPEN_SOURCE=600"
-	else
-		AC_MSG_ERROR("CMSG_DATA not found")
-	fi
-fi
+XOPEN_DEFINES="-D_XOPEN_SOURCE=600"
 AC_SUBST(XOPEN_DEFINES)
 
 # Look for err and friends in err.h.
@@ -732,9 +678,13 @@ case "$host_os" in
 		AC_MSG_RESULT(hpux)
 		PLATFORM=hpux
 		;;
-	*cygwin*|*msys*)
+	*cygwin*)
 		AC_MSG_RESULT(cygwin)
 		PLATFORM=cygwin
+		;;
+	*mingw*)
+		AC_MSG_RESULT(mingw)
+		PLATFORM=mingw
 		;;
 	*haiku*)
 		AC_MSG_RESULT(haiku)
@@ -755,6 +705,7 @@ AM_CONDITIONAL(IS_NETBSD, test "x$PLATFORM" = xnetbsd)
 AM_CONDITIONAL(IS_OPENBSD, test "x$PLATFORM" = xopenbsd)
 AM_CONDITIONAL(IS_SUNOS, test "x$PLATFORM" = xsunos)
 AM_CONDITIONAL(IS_HPUX, test "x$PLATFORM" = xhpux)
+AM_CONDITIONAL(IS_MINGW, test "x$PLATFORM" = xmingw)
 AM_CONDITIONAL(IS_HAIKU, test "x$PLATFORM" = xhaiku)
 AM_CONDITIONAL(IS_UNKNOWN, test "x$PLATFORM" = xunknown)
 

@@ -16,12 +16,12 @@
 
 #include <sys/types.h>
 
-#include "compat.h"
+#include "../compat.h"
 
 void fatal(const char *, ...);
 void fatalx(const char *, ...);
 
-pid_t
+HRESULT
 forkpty(int *master, char *name, struct termios *tio, struct winsize *ws)
 {
 	HRESULT hr = S_OK;
