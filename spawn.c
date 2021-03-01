@@ -186,6 +186,8 @@ spawn_window(struct spawn_context *sc, char **cause)
 	}
 
 	/* Switch to the new window if required. */
+	printf("session_select OK\n");
+
 	if (~sc->flags & SPAWN_DETACHED)
 		session_select(s, sc->wl->idx);
 
@@ -193,13 +195,17 @@ spawn_window(struct spawn_context *sc, char **cause)
 	if (~sc->flags & SPAWN_RESPAWN)
 		notify_session_window("window-linked", s, w);
 
+	printf("session_group_synchronize_from OK\n");
+
 	session_group_synchronize_from(s);
+
+	printf("spawn_window OK\n");
 	return (sc->wl);
 }
 
 struct window_pane *
 spawn_pane(struct spawn_context *sc, char **cause)
-{	
+{
 	struct cmdq_item	 *item = sc->item;
 	struct cmd_find_state	 *target = cmdq_get_target(item);
 	struct client		 *c = cmdq_get_client(item);
@@ -360,13 +366,20 @@ spawn_pane(struct spawn_context *sc, char **cause)
 		new_wp->flags |= PANE_EMPTY;
 		new_wp->base.mode &= ~MODE_CURSOR;
 		new_wp->base.mode |= MODE_CRLF;
-		goto complete;
+		//goto complete;
 	}
 
 	/* Fork the new process. */
 #ifdef _WIN32
-	new_wp->pid = fdforkpty(ptm_fd, &new_wp->pi, new_wp->tty, NULL, &ws);
-#else 
+	DWORD result = forkpty_conpty(new_wp->shell, c->tty.hPC, &ws);
+	if (SUCCEEDED(result)) {
+		new_wp->pid = result;
+		printf("Shell process id: %d", result);
+	} else {
+		xasprintf(cause, "conpty create process failed: %d", result);
+		return (NULL);
+	}
+#else
 	new_wp->pid = fdforkpty(ptm_fd, &new_wp->fd, new_wp->tty, NULL, &ws);
 #endif
 	if (new_wp->pid == -1) {
@@ -384,6 +397,7 @@ spawn_pane(struct spawn_context *sc, char **cause)
 		return (NULL);
 	}
 
+#ifndef _WIN32
 	/* In the parent process, everything is done now. */
 	if (new_wp->pid != 0)
 		goto complete;
@@ -401,7 +415,6 @@ spawn_pane(struct spawn_context *sc, char **cause)
 	 * Update terminal escape characters from the session if available and
 	 * force VERASE to tmux's backspace.
 	 */
-#ifndef _WIN32
 	if (tcgetattr(STDIN_FILENO, &now) != 0)
 		_exit(1);
 	if (s->tio != NULL)
@@ -422,7 +435,6 @@ spawn_pane(struct spawn_context *sc, char **cause)
 	sigprocmask(SIG_SETMASK, &oldset, NULL);
 	log_close();
 	environ_push(child);
-#endif
 	/*
 	 * If given multiple arguments, use execvp(). Copy the arguments to
 	 * ensure they end in a NULL.
@@ -466,9 +478,9 @@ complete:
 
 	new_wp->flags &= ~PANE_EXITED;
 
-#ifndef _WIN32
 	sigprocmask(SIG_SETMASK, &oldset, NULL);
 #endif
+
 	window_pane_set_event(new_wp);
 
 	environ_free(child);

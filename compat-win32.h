@@ -100,6 +100,8 @@ typedef struct sockaddr_un
 
 #define _PATH_POWERSHELL	"powershell.exe"
 
+DWORD forkpty_conpty(char *shell, HPCON hPC, struct winsize *ws);
+
 #if defined(HAVE_NCURSES_H)
 #include <ncurses/term.h>
 #undef lines

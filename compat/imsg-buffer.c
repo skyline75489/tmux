@@ -229,16 +229,10 @@ msgbuf_write(struct msgbuf *msgbuf)
 	ssize_t		 n;
 
 	WSAMSG msg;
-	WSACMSGHDR *cmsg;
 	WSABUF		 iov[1024];
-	union {
-		WSACMSGHDR	hdr;
-		char		buf[WSA_CMSG_SPACE(sizeof(int))];
-	} cmsgbuf;
 
 	memset(&iov, 0, sizeof(iov));
 	memset(&msg, 0, sizeof(msg));
-	memset(&cmsgbuf, 0, sizeof(cmsgbuf));
 
 	TAILQ_FOREACH(buf, &msgbuf->bufs, entry) {
 		if (i >= 1024)
@@ -253,34 +247,6 @@ msgbuf_write(struct msgbuf *msgbuf)
 	msg.lpBuffers = &iov;
 	msg.dwBufferCount = i;
 
-	if (buf != NULL && buf->fd != -1) {
-		msg.Control.buf = &cmsgbuf.buf;
-		msg.Control.len = sizeof(cmsgbuf.buf);
-		cmsg = WSA_CMSG_FIRSTHDR(&msg);
-		cmsg->cmsg_len = WSA_CMSG_LEN(sizeof(int));
-		cmsg->cmsg_level = SOL_SOCKET;
-		//cmsg->cmsg_type = SCM_RIGHTS;
-		*(int *)WSA_CMSG_DATA(cmsg) = buf->fd;
-	}
-
-	DWORD bytesReceived;
-	GUID guid = WSAID_WSASENDMSG;
-	LPFN_WSASENDMSG WSASendMsg = NULL;
-	if (WSAIoctl(
-		msgbuf->fd,
-		SIO_GET_EXTENSION_FUNCTION_POINTER,
-    	&guid,
-		sizeof(guid), 
-		&WSASendMsg, 
-		sizeof(WSASendMsg),
-    	&bytesReceived,
-		NULL,
-		NULL) == SOCKET_ERROR) {
-		int wsaerror = WSAGetLastError();
-		printf("WSAIoctl failed: %d\n", wsaerror);
-		return (-1);
-	}
-	printf("msgbuf->fd: %d\n", msgbuf->fd);
 	SOCKET h = msgbuf->fd;
 	ssize_t bytesSent = 0;
 	WSAMSG *message = &msg;
@@ -303,8 +269,7 @@ again:
 		}
 		bytesSent += r;
 	}
-	
-	printf("bytesSent: %d\n", bytesSent);
+
 	/*
 	 * assumption: fd got sent if sendmsg sent anything
 	 * this works because fds are passed one at a time
@@ -314,7 +279,7 @@ again:
 		buf->fd = -1;
 	}
 
-	msgbuf_drain(msgbuf, bytesReceived);
+	msgbuf_drain(msgbuf, bytesSent);
 	return (1);
 }
 #else

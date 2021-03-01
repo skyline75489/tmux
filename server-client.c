@@ -1979,7 +1979,6 @@ server_client_set_title(struct client *c)
 static void
 server_client_dispatch(struct imsg *imsg, void *arg)
 {
-	printf("server_client_dispatch\n");
 	struct client	*c = arg;
 	ssize_t		 datalen;
 	struct session	*s;
@@ -1993,7 +1992,6 @@ server_client_dispatch(struct imsg *imsg, void *arg)
 	}
 
 	datalen = imsg->hdr.len - IMSG_HEADER_SIZE;
-	printf("imsg->hdr.type :%d\n", imsg->hdr.type);
 	switch (imsg->hdr.type) {
 	case MSG_IDENTIFY_CLIENTPID:
 	case MSG_IDENTIFY_CWD:
@@ -2166,8 +2164,6 @@ server_client_dispatch_identify(struct client *c, struct imsg *imsg)
 	data = imsg->data;
 	datalen = imsg->hdr.len - IMSG_HEADER_SIZE;
 
-	printf("server_client_dispatch_identify: %d\n", imsg->hdr.type);
-
 	switch (imsg->hdr.type)	{
 	case MSG_IDENTIFY_FEATURES:
 		if (datalen != sizeof feat)
@@ -2229,7 +2225,22 @@ server_client_dispatch_identify(struct client *c, struct imsg *imsg)
 	case MSG_IDENTIFY_STDIN:
 		if (datalen != 0)
 			fatalx("bad MSG_IDENTIFY_STDIN size");
-		c->fd = imsg->fd;
+
+		struct sockaddr_in 	sa;
+
+		short port = 27018;
+		sa.sin_family = AF_INET;
+		sa.sin_addr.s_addr = inet_addr("127.0.0.1");
+		sa.sin_port = htons(port);
+
+		SOCKET conptyfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+
+		if (connect(conptyfd, (SOCKADDR *) & sa, sizeof (sa))) {
+			printf("connect failed with error %d\n", WSAGetLastError());
+			return 1;
+		}
+
+		c->fd = conptyfd;
 		log_debug("client %p IDENTIFY_STDIN %d", c, imsg->fd);
 		break;
 	case MSG_IDENTIFY_STDOUT:

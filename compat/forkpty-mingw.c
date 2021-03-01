@@ -24,38 +24,16 @@ void fatalx(const char *, ...);
 pid_t
 forkpty(int *master, char *name, struct termios *tio, struct winsize *ws)
 {
-    HRESULT hr = S_OK;
+    printf("forkpty\n");
+}
 
-    // Create communication channels
-
-    // - Close these after CreateProcess of child application with pseudoconsole object.
-    HANDLE inputReadSide, outputWriteSide;
-
-    // - Hold onto these and use them for communication with the child through the pseudoconsole.
-    HANDLE outputReadSide, inputWriteSide;
-
-    if (!CreatePipe(&inputReadSide, &inputWriteSide, NULL, 0))
-    {
-        return HRESULT_FROM_WIN32(GetLastError());
-    }
-
-    if (!CreatePipe(&outputReadSide, &outputWriteSide, NULL, 0))
-    {
-        return HRESULT_FROM_WIN32(GetLastError());
-    }
-
-    HPCON hPC;
-    COORD size;
-    size.X = ws->ws_col;
-    size.Y = ws->ws_row;
-    hr = CreatePseudoConsole(size, inputReadSide, outputWriteSide, 0, &hPC);
-    if (FAILED(hr))
-    {
-        return (-1);
-    }
-
-    PCWSTR childApplication = L"C:\\windows\\system32\\cmd.exe";
-
+DWORD
+forkpty_conpty(char *shell, HPCON hPC, struct winsize *ws)
+{
+    printf("Shell: %s", shell);
+    printf("HPCON: %d", hPC);
+    PCWSTR childApplication = L"C:\\windows\\system32\\WindowsPowerShell\\v1.0\\powershell.exe";
+//PCWSTR childApplication = "C:\\tools\\vim\\vim82\\gvim.exe";
     // Create mutable text string for CreateProcessW command line string.
     const size_t charsRequired = wcslen(childApplication) + 1; // +1 null terminator
     PWSTR cmdLineMutable = (PWSTR)HeapAlloc(GetProcessHeap(), 0, sizeof(wchar_t) * charsRequired);
@@ -106,6 +84,8 @@ forkpty(int *master, char *name, struct termios *tio, struct winsize *ws)
         return HRESULT_FROM_WIN32(GetLastError());
     }
 
+		printf("CreateProcessW\n");
+
     // Call CreateProcess
     if (!CreateProcessW(NULL,
         cmdLineMutable,
@@ -119,8 +99,12 @@ forkpty(int *master, char *name, struct termios *tio, struct winsize *ws)
         &pi))
     {
         HeapFree(GetProcessHeap(), 0, cmdLineMutable);
+		printf("CreateProcessW Errored i\n");
+
         return HRESULT_FROM_WIN32(GetLastError());
     }
 
-	return (-1);
+		printf("Shell process id: %d\n",  pi.dwProcessId);
+
+	return pi.dwProcessId;
 }

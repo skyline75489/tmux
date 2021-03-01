@@ -76,22 +76,22 @@ static void	tty_default_attributes(struct tty *, const struct grid_cell *,
 void
 tty_create_log(void)
 {
-	#ifndef _WIN32
 	char	name[64];
 
 	xsnprintf(name, sizeof name, "tmux-out-%ld.log", (long)getpid());
 
 	tty_log_fd = open(name, O_WRONLY|O_CREAT|O_TRUNC, 0644);
-	if (tty_log_fd != -1 && fcntl(tty_log_fd, F_SETFD, FD_CLOEXEC) == -1)
-		fatal("fcntl failed");
-		#endif
+	//if (tty_log_fd != -1 && fcntl(tty_log_fd, F_SETFD, FD_CLOEXEC) == -1)
+	//	fatal("fcntl failed");
 }
 
 int
 tty_init(struct tty *tty, struct client *c)
 {
+#ifndef _WIN32
 	if (!isatty(c->fd))
 		return (-1);
+#endif
 
 	memset(tty, 0, sizeof *tty);
 	tty->client = c;
@@ -99,7 +99,61 @@ tty_init(struct tty *tty, struct client *c)
 	tty->cstyle = 0;
 	tty->ccolour = xstrdup("");
 
-#ifndef _WIN32
+#ifdef _WIN32
+/*
+	struct sockaddr_in 	sa;
+	short port = 27018;
+
+	// Bind the socket to any address and the specified port.
+	sa.sin_family = AF_INET;
+	sa.sin_port = htons(port);
+
+	SOCKET conptyfd = INVALID_SOCKET;
+	conptyfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+
+	printf("tty_init :%d", conptyfd);
+
+	if (connect(conptyfd, (SOCKADDR *) & sa, sizeof (sa))) {
+		printf("connect failed with error %d\n", WSAGetLastError());
+		return 1;
+	}
+
+	log_debug("socket is %d", conptyfd);
+*/
+	HRESULT hr = S_OK;
+	HPCON hPC;
+	COORD coord;
+	coord.X = 120;
+	coord.Y = 80;
+
+ // Create communication channels
+
+    // - Close these after CreateProcess of child application with pseudoconsole object.
+    HANDLE inputReadSide, outputWriteSide;
+
+    // - Hold onto these and use them for communication with the child through the pseudoconsole.
+    HANDLE outputReadSide, inputWriteSide;
+
+    if (!CreatePipe(&inputReadSide, &inputWriteSide, NULL, 0))
+    {
+        return HRESULT_FROM_WIN32(GetLastError());
+    }
+
+    if (!CreatePipe(&outputReadSide, &outputWriteSide, NULL, 0))
+    {
+        return HRESULT_FROM_WIN32(GetLastError());
+    }
+	printf("c->fd: %d\n", c->fd);
+
+	printf("inputReadSide: %d\n", inputReadSide);
+	hr = CreatePseudoConsole(coord, inputReadSide, c->fd, 0, &hPC);
+	if (!SUCCEEDED(hr)) {
+		fatal("create conpty failed");
+	}
+
+	printf("CreatePseudoConsole HPC:%d \n", hPC);
+	tty->hPC = hPC;
+#else
 	if (tcgetattr(c->fd, &tty->tio) != 0)
 		return (-1);
 #endif
@@ -152,6 +206,7 @@ tty_set_size(struct tty *tty, u_int sx, u_int sy, u_int xpixel, u_int ypixel)
 static void
 tty_read_callback(__unused int fd, __unused short events, void *data)
 {
+	printf("tty_read_callback\n");
 	struct tty	*tty = data;
 	struct client	*c = tty->client;
 	const char	*name = c->name;
@@ -249,6 +304,7 @@ tty_write_callback(__unused int fd, __unused short events, void *data)
 int
 tty_open(struct tty *tty, char **cause)
 {
+	printf("tty_open\n");
 	struct client	*c = tty->client;
 
 	tty->term = tty_term_create(tty, c->term_name, c->term_caps,
@@ -261,6 +317,7 @@ tty_open(struct tty *tty, char **cause)
 
 	tty->flags &= ~(TTY_NOCURSOR|TTY_FREEZE|TTY_BLOCK|TTY_TIMER);
 
+	printf("tty_open :%d", c->fd);
 	event_set(&tty->event_in, c->fd, EV_PERSIST|EV_READ,
 	    tty_read_callback, tty);
 	tty->in = evbuffer_new();
@@ -296,13 +353,14 @@ tty_start_timer_callback(__unused int fd, __unused short events, void *data)
 void
 tty_start_tty(struct tty *tty)
 {
-	#ifndef _WIN32
 	struct client	*c = tty->client;
 	struct termios	 tio;
 	struct timeval	 tv = { .tv_sec = 1 };
 
 	setblocking(c->fd, 0);
 	event_add(&tty->event_in, NULL);
+
+	#ifndef _WIN32
 
 	memcpy(&tio, &tty->tio, sizeof tio);
 	tio.c_iflag &= ~(IXON|IXOFF|ICRNL|INLCR|IGNCR|IMAXBEL|ISTRIP);
@@ -314,7 +372,7 @@ tty_start_tty(struct tty *tty)
 	tio.c_cc[VTIME] = 0;
 	if (tcsetattr(c->fd, TCSANOW, &tio) == 0)
 		tcflush(c->fd, TCIOFLUSH);
-
+#endif
 	tty_putcode(tty, TTYC_SMCUP);
 
 	tty_putcode(tty, TTYC_SMKX);
@@ -327,10 +385,10 @@ tty_start_tty(struct tty *tty)
 		log_debug("%s: using UTF-8 for ACS", c->name);
 
 	tty_putcode(tty, TTYC_CNORM);
-	if (tty_term_has(tty->term, TTYC_KMOUS)) {
+	//if (tty_term_has(tty->term, TTYC_KMOUS)) {
 		tty_puts(tty, "\033[?1000l\033[?1002l\033[?1003l");
 		tty_puts(tty, "\033[?1006l\033[?1005l");
-	}
+	//}
 
 	evtimer_set(&tty->start_timer, tty_start_timer_callback, tty);
 	evtimer_add(&tty->start_timer, &tv);
@@ -344,7 +402,6 @@ tty_start_tty(struct tty *tty)
 	tty->mouse_drag_flag = 0;
 	tty->mouse_drag_update = NULL;
 	tty->mouse_drag_release = NULL;
-	#endif
 }
 
 void
@@ -430,6 +487,7 @@ tty_stop_tty(struct tty *tty)
 void
 tty_close(struct tty *tty)
 {
+	printf("ttyclose\n");
 	if (event_initialized(&tty->key_timer))
 		evtimer_del(&tty->key_timer);
 	tty_stop_tty(tty);
@@ -481,6 +539,7 @@ tty_raw(struct tty *tty, const char *s)
 
 	slen = strlen(s);
 	for (i = 0; i < 5; i++) {
+		printf("tty_raw:: write\n");
 		n = write(c->fd, s, slen);
 		if (n >= 0) {
 			s += n;

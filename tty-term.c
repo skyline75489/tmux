@@ -535,11 +535,13 @@ tty_term_create(struct tty *tty, char *name, char **caps, u_int ncaps,
 	/* These are always required. */
 	if (!tty_term_has(term, TTYC_CLEAR)) {
 		xasprintf(cause, "terminal does not support clear");
-		goto error;
+		// TODO: restore this.
+		//goto error;
 	}
 	if (!tty_term_has(term, TTYC_CUP)) {
 		xasprintf(cause, "terminal does not support cup");
-		goto error;
+		// TODO: restore this.
+		//goto error;
 	}
 
 	/*
@@ -665,7 +667,6 @@ printf("tty_term_read_list\n");
 
 	*ncaps = 0;
 	*caps = NULL;
-printf("tty_term_ncodes\n");
 
 	for (i = 0; i < tty_term_ncodes(); i++) {
 		ent = &tty_term_codes[i];

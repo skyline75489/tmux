@@ -28,8 +28,8 @@
 
 #include "tmux.h"
 
-static struct tmuxproc	*client_proc;
 static struct tmuxpeer	*client_peer;
+static struct tmuxproc	*client_proc;
 static uint64_t		 client_flags;
 static int		 client_suspended;
 static enum {
@@ -229,6 +229,25 @@ client_exit(void)
 		proc_exit(client_proc);
 }
 
+
+static void
+win32_client_read(int fd, short events, __unused void *data)
+{
+			printf("win32_client_read\n");
+
+	const int DEFAULT_BUFLEN = 512;
+ 	char recvbuf[DEFAULT_BUFLEN];
+    int recvbuflen = DEFAULT_BUFLEN;
+	int iResult;
+	int n = recv(fd, recvbuf, recvbuflen, 0);
+	if (n > 0) {
+		printf("Recv OK\n");
+		printf("%s", recvbuf);
+	}
+
+}
+
+
 /* Client main loop. */
 int
 client_main(struct event_base *base, int argc, char **argv, uint64_t flags,
@@ -293,14 +312,52 @@ client_main(struct event_base *base, int argc, char **argv, uint64_t flags,
 		}
 		return (1);
 	}
-	printf("proc_add_peer: %d", fd);
 	client_peer = proc_add_peer(client_proc, fd, client_dispatch, NULL);
 
 	/* Save these before pledge(). */
 	if ((cwd = find_cwd()) == NULL && (cwd = find_home()) == NULL)
 		cwd = "/";
+
 #ifdef _WIN32
-		ttynam = "winconpty";
+	char *conptyname = NULL;
+	xasprintf(&conptyname, "winconpty-%d", getpid());
+	ttynam = conptyname;
+
+	  WORD wVersionRequested;
+    WSADATA wsaData;
+    int err;
+
+/* Use the MAKEWORD(lowbyte, highbyte) macro declared in Windef.h */
+    wVersionRequested = MAKEWORD(2, 2);
+
+    err = WSAStartup(wVersionRequested, &wsaData);
+    if (err != 0) {
+        /* Tell the user that we could not find a usable */
+        /* Winsock DLL.                                  */
+        printf("WSAStartup failed with error: %d\n", err);
+        return 1;
+    }
+
+	struct sockaddr_in 	sa;
+
+	short port = 27018;
+	sa.sin_family = AF_INET;
+	sa.sin_addr.s_addr = inet_addr("127.0.0.1");
+	sa.sin_port = htons(port);
+
+	SOCKET conptyfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+
+	if (bind(conptyfd, (SOCKADDR *) & sa, sizeof (sa))) {
+		auto error = WSAGetLastError();
+		printf("bind failed with error %d\n", error);
+		return 1;
+	}
+
+	struct event	 read_event;
+	printf("event_set\n");
+	event_set(&read_event, conptyfd, EV_PERSIST|EV_READ, win32_client_read, NULL);
+	event_add(&read_event, 0);
+
 #else
 	if ((ttynam = ttyname(STDIN_FILENO)) == NULL)
 		ttynam = "";
@@ -479,7 +536,6 @@ client_send_identify(const char *ttynam, const char *termname, char **caps,
 	    strlen(ttynam) + 1);
 	proc_send(client_peer, MSG_IDENTIFY_CWD, -1, cwd, strlen(cwd) + 1);
 
-	printf("MSG_IDENTIFY_TERMINFO\n");
 	for (i = 0; i < ncaps; i++) {
 		proc_send(client_peer, MSG_IDENTIFY_TERMINFO, -1,
 		    caps[i], strlen(caps[i]) + 1);
@@ -493,7 +549,6 @@ client_send_identify(const char *ttynam, const char *termname, char **caps,
 	proc_send(client_peer, MSG_IDENTIFY_STDOUT, fd, NULL, 0);
 
 	pid = getpid();
-	printf("MSG_IDENTIFY_CLIENTPID\n");
 
 	proc_send(client_peer, MSG_IDENTIFY_CLIENTPID, -1, &pid, sizeof pid);
 

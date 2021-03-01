@@ -109,7 +109,10 @@ default_window_name(struct window *w)
 {
 	char	*cmd, *s;
 
+	printf("w->active: %p\n", w->active);
+
 	cmd = cmd_stringify_argv(w->active->argc, w->active->argv);
+	printf("default_window_name: %s\n", cmd);
 	if (cmd != NULL && *cmd != '\0')
 		s = parse_window_name(cmd);
 	else

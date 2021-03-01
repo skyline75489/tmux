@@ -1325,6 +1325,9 @@ struct tty {
 	size_t		 discarded;
 
 	struct termios	 tio;
+	#ifdef _WIN32
+	HPCON hPC;
+	#endif
 
 	struct grid_cell cell;
 	struct grid_cell last_cell;
