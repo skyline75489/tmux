@@ -84,6 +84,8 @@ forkpty_conpty(char *shell, HPCON hPC, struct winsize *ws)
         return HRESULT_FROM_WIN32(GetLastError());
     }
 
+		printf("CreateProcessW\n");
+
     // Call CreateProcess
     if (!CreateProcessW(NULL,
         cmdLineMutable,
