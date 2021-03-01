@@ -134,6 +134,7 @@ server_create_socket(int flags, char **cause)
 	}
 	setblocking(fd, 0);
 
+	printf("server_create_socket fd: %d\n", fd);
 	return (fd);
 
 fail:
@@ -149,6 +150,10 @@ int
 server_start(struct tmuxproc *client, int flags, struct event_base *base,
     int lockfd, char *lockfile)
 {
+	#ifdef _WIN32
+				flags |= CLIENT_NOFORK;
+
+	#endif
 	int		  fd;
 	struct client	 *c = NULL;
 	char		 *cause = NULL;
@@ -354,6 +359,9 @@ server_accept(int fd, short events, __unused void *data)
 		close(newfd);
 		return;
 	}
+
+	printf("server_accept newFd: %d\n", newfd);
+
 	server_client_create(newfd);
 }
 

@@ -639,6 +639,9 @@ tty_term_read_list(const char *name, int fd, char ***caps, u_int *ncaps,
 	const char				*s;
 	char					 tmp[11];
 
+printf("tty_term_read_list\n");
+
+#ifndef _WIN32
 	if (setupterm(name, fd, &error) != OK) {
 		switch (error) {
 		case 1:
@@ -658,9 +661,11 @@ tty_term_read_list(const char *name, int fd, char ***caps, u_int *ncaps,
 		}
 		return (-1);
 	}
+#endif
 
 	*ncaps = 0;
 	*caps = NULL;
+printf("tty_term_ncodes\n");
 
 	for (i = 0; i < tty_term_ncodes(); i++) {
 		ent = &tty_term_codes[i];
@@ -693,8 +698,10 @@ tty_term_read_list(const char *name, int fd, char ***caps, u_int *ncaps,
 		xasprintf(&(*caps)[*ncaps], "%s=%s", ent->name, s);
 		(*ncaps)++;
 	}
-
+#if !defined(NCURSES_VERSION_MAJOR) || NCURSES_VERSION_MAJOR > 5 || \
+    (NCURSES_VERSION_MAJOR == 5 && NCURSES_VERSION_MINOR > 6)
 	del_curterm(cur_term);
+#endif
 	return (0);
 }
 

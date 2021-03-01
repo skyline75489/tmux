@@ -65,6 +65,7 @@ const struct cmd_entry cmd_has_session_entry = {
 static enum cmd_retval
 cmd_new_session_exec(struct cmd *self, struct cmdq_item *item)
 {
+	printf("cmd_new_session_exec\n");
 	struct args		*args = cmd_get_args(self);
 	struct cmd_find_state	*current = cmdq_get_current(item);
 	struct cmd_find_state	*target = cmdq_get_target(item);

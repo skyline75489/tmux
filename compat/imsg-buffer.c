@@ -220,10 +220,107 @@ msgbuf_clear(struct msgbuf *msgbuf)
 		ibuf_dequeue(msgbuf, buf);
 }
 
+#ifdef _WIN32
 int
 msgbuf_write(struct msgbuf *msgbuf)
 {
-	#ifndef _WIN32
+	struct ibuf	*buf;
+	unsigned int	 i = 0;
+	ssize_t		 n;
+
+	WSAMSG msg;
+	WSACMSGHDR *cmsg;
+	WSABUF		 iov[1024];
+	union {
+		WSACMSGHDR	hdr;
+		char		buf[WSA_CMSG_SPACE(sizeof(int))];
+	} cmsgbuf;
+
+	memset(&iov, 0, sizeof(iov));
+	memset(&msg, 0, sizeof(msg));
+	memset(&cmsgbuf, 0, sizeof(cmsgbuf));
+
+	TAILQ_FOREACH(buf, &msgbuf->bufs, entry) {
+		if (i >= 1024)
+			break;
+		iov[i].buf = buf->buf + buf->rpos;
+		iov[i].len = buf->wpos - buf->rpos;
+		i++;
+		if (buf->fd != -1)
+			break;
+	}
+
+	msg.lpBuffers = &iov;
+	msg.dwBufferCount = i;
+
+	if (buf != NULL && buf->fd != -1) {
+		msg.Control.buf = &cmsgbuf.buf;
+		msg.Control.len = sizeof(cmsgbuf.buf);
+		cmsg = WSA_CMSG_FIRSTHDR(&msg);
+		cmsg->cmsg_len = WSA_CMSG_LEN(sizeof(int));
+		cmsg->cmsg_level = SOL_SOCKET;
+		//cmsg->cmsg_type = SCM_RIGHTS;
+		*(int *)WSA_CMSG_DATA(cmsg) = buf->fd;
+	}
+
+	DWORD bytesReceived;
+	GUID guid = WSAID_WSASENDMSG;
+	LPFN_WSASENDMSG WSASendMsg = NULL;
+	if (WSAIoctl(
+		msgbuf->fd,
+		SIO_GET_EXTENSION_FUNCTION_POINTER,
+    	&guid,
+		sizeof(guid), 
+		&WSASendMsg, 
+		sizeof(WSASendMsg),
+    	&bytesReceived,
+		NULL,
+		NULL) == SOCKET_ERROR) {
+		int wsaerror = WSAGetLastError();
+		printf("WSAIoctl failed: %d\n", wsaerror);
+		return (-1);
+	}
+	printf("msgbuf->fd: %d\n", msgbuf->fd);
+	SOCKET h = msgbuf->fd;
+	ssize_t bytesSent = 0;
+	WSAMSG *message = &msg;
+again:
+	// Unfortunately, WSASendMsg requires the socket to have been opened
+	// as either SOCK_DGRAM or SOCK_RAW, but sendmsg has no such requirement,
+	// so we have to implement it based on send instead :(
+	for (size_t i = 0; i < message->dwBufferCount; i++) {
+		int r = -1;
+		r = send(
+			h,
+			(const char*)message->lpBuffers[i].buf,
+			(int)message->lpBuffers[i].len,
+			message->dwFlags);
+
+		if (r == SOCKET_ERROR || r != message->lpBuffers[i].len) {
+			int wsaerror = WSAGetLastError();
+			printf("WSARecvMsg failed: %d\n", wsaerror);
+			return -1;
+		}
+		bytesSent += r;
+	}
+	
+	printf("bytesSent: %d\n", bytesSent);
+	/*
+	 * assumption: fd got sent if sendmsg sent anything
+	 * this works because fds are passed one at a time
+	 */
+	if (buf != NULL && buf->fd != -1) {
+		close(buf->fd);
+		buf->fd = -1;
+	}
+
+	msgbuf_drain(msgbuf, bytesReceived);
+	return (1);
+}
+#else
+int
+msgbuf_write(struct msgbuf *msgbuf)
+{
 	struct iovec	 iov[IOV_MAX];
 	struct ibuf	*buf;
 	unsigned int	 i = 0;
@@ -287,9 +384,8 @@ again:
 	msgbuf_drain(msgbuf, n);
 
 	return (1);
-#endif
-
 }
+#endif
 
 static void
 ibuf_enqueue(struct msgbuf *msgbuf, struct ibuf *buf)

@@ -293,12 +293,15 @@ client_main(struct event_base *base, int argc, char **argv, uint64_t flags,
 		}
 		return (1);
 	}
+	printf("proc_add_peer: %d", fd);
 	client_peer = proc_add_peer(client_proc, fd, client_dispatch, NULL);
 
 	/* Save these before pledge(). */
 	if ((cwd = find_cwd()) == NULL && (cwd = find_home()) == NULL)
 		cwd = "/";
-#ifndef _WIN32
+#ifdef _WIN32
+		ttynam = "winconpty";
+#else
 	if ((ttynam = ttyname(STDIN_FILENO)) == NULL)
 		ttynam = "";
 #endif
@@ -464,14 +467,19 @@ client_send_identify(const char *ttynam, const char *termname, char **caps,
 	proc_send(client_peer, MSG_IDENTIFY_LONGFLAGS, -1, &client_flags,
 	    sizeof client_flags);
 
+	printf("termname: %s\n", termname);
+
 	proc_send(client_peer, MSG_IDENTIFY_TERM, -1, termname,
 	    strlen(termname) + 1);
 	proc_send(client_peer, MSG_IDENTIFY_FEATURES, -1, &feat, sizeof feat);
+
+	printf("ttynam: %s\n", ttynam);
 
 	proc_send(client_peer, MSG_IDENTIFY_TTYNAME, -1, ttynam,
 	    strlen(ttynam) + 1);
 	proc_send(client_peer, MSG_IDENTIFY_CWD, -1, cwd, strlen(cwd) + 1);
 
+	printf("MSG_IDENTIFY_TERMINFO\n");
 	for (i = 0; i < ncaps; i++) {
 		proc_send(client_peer, MSG_IDENTIFY_TERMINFO, -1,
 		    caps[i], strlen(caps[i]) + 1);
@@ -485,6 +493,8 @@ client_send_identify(const char *ttynam, const char *termname, char **caps,
 	proc_send(client_peer, MSG_IDENTIFY_STDOUT, fd, NULL, 0);
 
 	pid = getpid();
+	printf("MSG_IDENTIFY_CLIENTPID\n");
+
 	proc_send(client_peer, MSG_IDENTIFY_CLIENTPID, -1, &pid, sizeof pid);
 
 #ifdef _WIN32

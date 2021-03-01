@@ -222,6 +222,7 @@ spawn_pane(struct spawn_context *sc, char **cause)
 
 	spawn_log(__func__, sc);
 
+	printf("spawn_pane\n");
 	/*
 	 * Work out the current working directory. If respawning, use
 	 * the pane's stored one unless specified.
@@ -318,13 +319,18 @@ spawn_pane(struct spawn_context *sc, char **cause)
 	/* Then the shell. If respawning, use the old one. */
 	if (~sc->flags & SPAWN_RESPAWN) {
 		tmp = options_get_string(s->options, "default-shell");
+#ifdef _WIN32
+		tmp = _PATH_POWERSHELL;
+#else
 		if (!checkshell(tmp))
 			tmp = _PATH_BSHELL;
+		#endif
 		free(new_wp->shell);
 		new_wp->shell = xstrdup(tmp);
 	}
 	environ_set(child, "SHELL", 0, "%s", new_wp->shell);
 
+	printf("shell: %s", new_wp->shell);
 	/* Log the arguments we are going to use. */
 	log_debug("%s: shell=%s", __func__, new_wp->shell);
 	if (new_wp->argc != 0) {

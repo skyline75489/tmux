@@ -64,7 +64,7 @@ log_open(const char *name)
 	log_close();
 
 	xasprintf(&path, "tmux-%s-%ld.log", name, (long)getpid());
-	printf("LogPath: %s", path);
+	printf("LogPath: %s\n", path);
 	log_file = fopen(path, "a");
 	free(path);
 	if (log_file == NULL)

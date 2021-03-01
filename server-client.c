@@ -273,6 +273,7 @@ server_client_open(struct client *c, char **cause)
 void
 server_client_lost(struct client *c)
 {
+	printf("server_client_lost\n");
 	struct client_file	*cf, *cf1;
 	struct client_window	*cw, *cw1;
 
@@ -1978,6 +1979,7 @@ server_client_set_title(struct client *c)
 static void
 server_client_dispatch(struct imsg *imsg, void *arg)
 {
+	printf("server_client_dispatch\n");
 	struct client	*c = arg;
 	ssize_t		 datalen;
 	struct session	*s;
@@ -1991,7 +1993,7 @@ server_client_dispatch(struct imsg *imsg, void *arg)
 	}
 
 	datalen = imsg->hdr.len - IMSG_HEADER_SIZE;
-
+	printf("imsg->hdr.type :%d\n", imsg->hdr.type);
 	switch (imsg->hdr.type) {
 	case MSG_IDENTIFY_CLIENTPID:
 	case MSG_IDENTIFY_CWD:
@@ -2163,6 +2165,8 @@ server_client_dispatch_identify(struct client *c, struct imsg *imsg)
 
 	data = imsg->data;
 	datalen = imsg->hdr.len - IMSG_HEADER_SIZE;
+
+	printf("server_client_dispatch_identify: %d\n", imsg->hdr.type);
 
 	switch (imsg->hdr.type)	{
 	case MSG_IDENTIFY_FEATURES:

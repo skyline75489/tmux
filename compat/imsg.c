@@ -41,10 +41,80 @@ imsg_init(struct imsgbuf *ibuf, int fd)
 	TAILQ_INIT(&ibuf->fds);
 }
 
+#ifdef _WIN32
+ssize_t imsg_read(struct imsgbuf *ibuf)
+{
+	WSAMSG msg;
+	WSACMSGHDR *cmsg;
+	union {
+		WSACMSGHDR hdr;
+		char	buf[WSA_CMSG_SPACE(sizeof(int) * 1)];
+	} cmsgbuf;
+	WSABUF		 iov;
+	ssize_t			 n = -1;
+	int			 fd;
+	struct imsg_fd		*ifd;
+
+	memset(&msg, 0, sizeof(msg));
+	memset(&cmsgbuf, 0, sizeof(cmsgbuf));
+
+	iov.buf = ibuf->r.buf + ibuf->r.wpos;
+	iov.len = sizeof(ibuf->r.buf) - ibuf->r.wpos;
+	msg.name = NULL;
+	msg.namelen = 0;
+	msg.dwFlags = 0;
+	msg.lpBuffers = &iov;
+	msg.dwBufferCount = 1;
+	msg.Control.buf = (CHAR*)&cmsgbuf.buf;
+	msg.Control.len = (ULONG)sizeof(cmsgbuf.buf);
+
+	if ((ifd = calloc(1, sizeof(struct imsg_fd))) == NULL)
+		return (-1);
+
+	printf("ibuf->fd: %d\n", ibuf->fd);
+	GUID guid = WSAID_WSARECVMSG;
+	LPFN_WSARECVMSG WSARecvMsg;
+	DWORD recMsgBytes;
+	if (WSAIoctl(
+		ibuf->fd,
+		SIO_GET_EXTENSION_FUNCTION_POINTER,
+    	&guid,
+		sizeof(guid), 
+		&WSARecvMsg, 
+		sizeof(WSARecvMsg),
+    	&recMsgBytes,
+		NULL,
+		NULL) == SOCKET_ERROR) {
+		int wsaerror = WSAGetLastError();
+		printf("WSAIoctl failed: %d\n", wsaerror);
+		goto fail;
+	}
+	SOCKET h = ibuf->fd;
+	WSAMSG *message = &msg;
+	ssize_t totalBytesReceived = 0;
+	ssize_t bytesReceived = 0;
+again:
+	for (size_t i = 0; i < message->dwBufferCount; i++) {
+		if ((bytesReceived = recv(
+			h,
+			(const char*)message->lpBuffers[i].buf + totalBytesReceived,
+			(int)message->lpBuffers[i].len - totalBytesReceived,
+			message->dwFlags)) > 0) {
+			totalBytesReceived += bytesReceived;
+		}
+	}
+
+	printf("imsg_read OK, bytesReceived: %d\n", totalBytesReceived);
+	ibuf->r.wpos += totalBytesReceived;
+fail:
+	free(ifd);
+	return (totalBytesReceived);
+}
+#else
+
 ssize_t
 imsg_read(struct imsgbuf *ibuf)
 {
-	#ifndef _WIN32
 	struct msghdr		 msg;
 	struct cmsghdr		*cmsg;
 	union {
@@ -117,8 +187,8 @@ again:
 fail:
 	free(ifd);
 	return (n);
-	#endif
 }
+#endif
 
 ssize_t
 imsg_get(struct imsgbuf *ibuf, struct imsg *imsg)
@@ -126,7 +196,7 @@ imsg_get(struct imsgbuf *ibuf, struct imsg *imsg)
 	size_t			 av, left, datalen;
 
 	av = ibuf->r.wpos;
-
+	printf("ibuf->r.wpos :%d\n", ibuf->r.wpos);
 	if (IMSG_HEADER_SIZE > av)
 		return (0);
 
@@ -134,6 +204,7 @@ imsg_get(struct imsgbuf *ibuf, struct imsg *imsg)
 	if (imsg->hdr.len < IMSG_HEADER_SIZE ||
 	    imsg->hdr.len > MAX_IMSGSIZE) {
 		errno = ERANGE;
+		printf("imsg_get ERANGE: imsg->hdr.len: %d\n", imsg->hdr.len);
 		return (-1);
 	}
 	if (imsg->hdr.len > av)
@@ -185,8 +256,6 @@ int
 imsg_composev(struct imsgbuf *ibuf, uint32_t type, uint32_t peerid, pid_t pid,
     int fd, const struct iovec *iov, int iovcnt)
 {
-		#ifndef _WIN32
-
 	struct ibuf	*wbuf;
 	int		 i, datalen = 0;
 
@@ -205,7 +274,6 @@ imsg_composev(struct imsgbuf *ibuf, uint32_t type, uint32_t peerid, pid_t pid,
 	imsg_close(ibuf, wbuf);
 
 	return (1);
-	#endif
 }
 
 /* ARGSUSED */

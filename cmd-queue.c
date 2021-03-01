@@ -692,7 +692,7 @@ cmdq_next(struct client *c)
 	static u_int		 number;
 
 	if (TAILQ_EMPTY(&queue->list)) {
-		log_debug("%s %s: empty", __func__, name);
+		// log_debug("%s %s: empty", __func__, name);
 		return (0);
 	}
 	if (TAILQ_FIRST(&queue->list)->flags & CMDQ_WAITING) {

@@ -73,14 +73,18 @@ proc_event_cb(__unused int fd, short events, void *arg)
 	ssize_t		 n;
 	struct imsg	 imsg;
 
+	printf("proc_event_cb\n");
 	if (!(peer->flags & PEER_BAD) && (events & EV_READ)) {
+		printf("proc_event_cb: EV_READ\n");
 		if (((n = imsg_read(&peer->ibuf)) == -1 && errno != EAGAIN) ||
 		    n == 0) {
+				printf("imsg_read failed!!!\n");
 			peer->dispatchcb(NULL, peer->arg);
 			return;
 		}
 		for (;;) {
 			if ((n = imsg_get(&peer->ibuf, &imsg)) == -1) {
+				printf("imsg_get failed!!!\n");
 				peer->dispatchcb(NULL, peer->arg);
 				return;
 			}
@@ -101,6 +105,7 @@ proc_event_cb(__unused int fd, short events, void *arg)
 	}
 
 	if (events & EV_WRITE) {
+		printf("proc_event_cb: EV_WRITE\n");
 		if (msgbuf_write(&peer->ibuf.w) <= 0 && errno != EAGAIN) {
 			peer->dispatchcb(NULL, peer->arg);
 			return;
@@ -108,6 +113,7 @@ proc_event_cb(__unused int fd, short events, void *arg)
 	}
 
 	if ((peer->flags & PEER_BAD) && peer->ibuf.w.queued == 0) {
+		printf("proc_event_cb: PEER_BAD\n");
 		peer->dispatchcb(NULL, peer->arg);
 		return;
 	}
@@ -150,6 +156,7 @@ proc_update_event(struct tmuxpeer *peer)
 	events = EV_READ;
 	if (peer->ibuf.w.queued > 0)
 		events |= EV_WRITE;
+	printf("proc_update_event peer->ibuf.fd: %d\n", peer->ibuf.fd);
 	event_set(&peer->event, peer->ibuf.fd, events, proc_event_cb, peer);
 
 	event_add(&peer->event, NULL);
