@@ -100,53 +100,29 @@ tty_init(struct tty *tty, struct client *c)
 	tty->ccolour = xstrdup("");
 
 #ifdef _WIN32
-/*
-	struct sockaddr_in 	sa;
-	short port = 27018;
 
-	// Bind the socket to any address and the specified port.
-	sa.sin_family = AF_INET;
-	sa.sin_port = htons(port);
-
-	SOCKET conptyfd = INVALID_SOCKET;
-	conptyfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-
-	printf("tty_init :%d", conptyfd);
-
-	if (connect(conptyfd, (SOCKADDR *) & sa, sizeof (sa))) {
-		printf("connect failed with error %d\n", WSAGetLastError());
-		return 1;
-	}
-
-	log_debug("socket is %d", conptyfd);
-*/
 	HRESULT hr = S_OK;
 	HPCON hPC;
 	COORD coord;
 	coord.X = 120;
 	coord.Y = 80;
 
- // Create communication channels
 
-    // - Close these after CreateProcess of child application with pseudoconsole object.
-    HANDLE inputReadSide, outputWriteSide;
+	DWORD pid;
+	DWORD inHandle;
+	DWORD outHandle;
+	sscanf(c->ttyname, "winconpty-%d-%d-%d", &pid, &inHandle, &outHandle);
+	
+	HANDLE clientProcees = OpenProcess(PROCESS_DUP_HANDLE, FALSE, pid);
+	DWORD dupInHandle;
+	DWORD dupOutHandle;
 
-    // - Hold onto these and use them for communication with the child through the pseudoconsole.
-    HANDLE outputReadSide, inputWriteSide;
+	if (DuplicateHandle(clientProcees, inHandle, GetCurrentProcess(), &dupInHandle, 0, FALSE, DUPLICATE_SAME_ACCESS ) &&
+	DuplicateHandle(clientProcees, outHandle, GetCurrentProcess(), &dupOutHandle, 0, FALSE, DUPLICATE_SAME_ACCESS)) {
+		printf("DupHandle OK\n");
+	}
 
-    if (!CreatePipe(&inputReadSide, &inputWriteSide, NULL, 0))
-    {
-        return HRESULT_FROM_WIN32(GetLastError());
-    }
-
-    if (!CreatePipe(&outputReadSide, &outputWriteSide, NULL, 0))
-    {
-        return HRESULT_FROM_WIN32(GetLastError());
-    }
-	printf("c->fd: %d\n", c->fd);
-
-	printf("inputReadSide: %d\n", inputReadSide);
-	hr = CreatePseudoConsole(coord, inputReadSide, c->fd, 0, &hPC);
+	hr = CreatePseudoConsole(coord, dupInHandle, dupOutHandle, 0, &hPC);
 	if (!SUCCEEDED(hr)) {
 		fatal("create conpty failed");
 	}

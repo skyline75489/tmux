@@ -2225,22 +2225,7 @@ server_client_dispatch_identify(struct client *c, struct imsg *imsg)
 	case MSG_IDENTIFY_STDIN:
 		if (datalen != 0)
 			fatalx("bad MSG_IDENTIFY_STDIN size");
-
-		struct sockaddr_in 	sa;
-
-		short port = 27018;
-		sa.sin_family = AF_INET;
-		sa.sin_addr.s_addr = inet_addr("127.0.0.1");
-		sa.sin_port = htons(port);
-
-		SOCKET conptyfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-
-		if (connect(conptyfd, (SOCKADDR *) & sa, sizeof (sa))) {
-			printf("connect failed with error %d\n", WSAGetLastError());
-			return 1;
-		}
-
-		c->fd = conptyfd;
+		c->fd = imsg->fd;
 		log_debug("client %p IDENTIFY_STDIN %d", c, imsg->fd);
 		break;
 	case MSG_IDENTIFY_STDOUT:
@@ -2281,6 +2266,9 @@ server_client_dispatch_identify(struct client *c, struct imsg *imsg)
 	c->fd = open(c->ttyname, O_RDWR|O_NOCTTY);
 #endif
 
+#ifdef _WIN32
+	c->fd = 0;
+#endif
 	if (c->flags & CLIENT_CONTROL)
 		control_start(c);
 	else if (c->fd != -1) {
@@ -2295,6 +2283,7 @@ server_client_dispatch_identify(struct client *c, struct imsg *imsg)
 		c->out_fd = -1;
 	}
 
+	
 	/*
 	 * If this is the first client, load configuration files. Any later
 	 * clients are allowed to continue with their command even if the

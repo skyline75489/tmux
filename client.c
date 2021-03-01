@@ -320,43 +320,10 @@ client_main(struct event_base *base, int argc, char **argv, uint64_t flags,
 
 #ifdef _WIN32
 	char *conptyname = NULL;
-	xasprintf(&conptyname, "winconpty-%d", getpid());
+	HANDLE inHandle = GetStdHandle(STD_INPUT_HANDLE);
+	HANDLE outHandle = GetStdHandle(STD_OUTPUT_HANDLE);
+	xasprintf(&conptyname, "winconpty-%d-%d-%d", getpid(), inHandle, outHandle);
 	ttynam = conptyname;
-
-	  WORD wVersionRequested;
-    WSADATA wsaData;
-    int err;
-
-/* Use the MAKEWORD(lowbyte, highbyte) macro declared in Windef.h */
-    wVersionRequested = MAKEWORD(2, 2);
-
-    err = WSAStartup(wVersionRequested, &wsaData);
-    if (err != 0) {
-        /* Tell the user that we could not find a usable */
-        /* Winsock DLL.                                  */
-        printf("WSAStartup failed with error: %d\n", err);
-        return 1;
-    }
-
-	struct sockaddr_in 	sa;
-
-	short port = 27018;
-	sa.sin_family = AF_INET;
-	sa.sin_addr.s_addr = inet_addr("127.0.0.1");
-	sa.sin_port = htons(port);
-
-	SOCKET conptyfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-
-	if (bind(conptyfd, (SOCKADDR *) & sa, sizeof (sa))) {
-		auto error = WSAGetLastError();
-		printf("bind failed with error %d\n", error);
-		return 1;
-	}
-
-	struct event	 read_event;
-	printf("event_set\n");
-	event_set(&read_event, conptyfd, EV_PERSIST|EV_READ, win32_client_read, NULL);
-	event_add(&read_event, 0);
 
 #else
 	if ((ttynam = ttyname(STDIN_FILENO)) == NULL)
