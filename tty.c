@@ -100,53 +100,13 @@ tty_init(struct tty *tty, struct client *c)
 	tty->ccolour = xstrdup("");
 
 #ifdef _WIN32
-/*
-	struct sockaddr_in 	sa;
-	short port = 27018;
-
-	// Bind the socket to any address and the specified port.
-	sa.sin_family = AF_INET;
-	sa.sin_port = htons(port);
-
-	SOCKET conptyfd = INVALID_SOCKET;
-	conptyfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-
-	printf("tty_init :%d", conptyfd);
-
-	if (connect(conptyfd, (SOCKADDR *) & sa, sizeof (sa))) {
-		printf("connect failed with error %d\n", WSAGetLastError());
-		return 1;
-	}
-
-	log_debug("socket is %d", conptyfd);
-*/
 	HRESULT hr = S_OK;
 	HPCON hPC;
 	COORD coord;
 	coord.X = 120;
 	coord.Y = 80;
 
- // Create communication channels
-
-    // - Close these after CreateProcess of child application with pseudoconsole object.
-    HANDLE inputReadSide, outputWriteSide;
-
-    // - Hold onto these and use them for communication with the child through the pseudoconsole.
-    HANDLE outputReadSide, inputWriteSide;
-
-    if (!CreatePipe(&inputReadSide, &inputWriteSide, NULL, 0))
-    {
-        return HRESULT_FROM_WIN32(GetLastError());
-    }
-
-    if (!CreatePipe(&outputReadSide, &outputWriteSide, NULL, 0))
-    {
-        return HRESULT_FROM_WIN32(GetLastError());
-    }
-	printf("c->fd: %d\n", c->fd);
-
-	printf("inputReadSide: %d\n", inputReadSide);
-	hr = CreatePseudoConsole(coord, inputReadSide, c->fd, 0, &hPC);
+	hr = CreatePseudoConsole(coord, c->fd, c->out_fd, 0, &hPC);
 	if (!SUCCEEDED(hr)) {
 		fatal("create conpty failed");
 	}
@@ -277,6 +237,7 @@ tty_block_maybe(struct tty *tty)
 static void
 tty_write_callback(__unused int fd, __unused short events, void *data)
 {
+	printf("tty_write_callback\n");
 	struct tty	*tty = data;
 	struct client	*c = tty->client;
 	size_t		 size = EVBUFFER_LENGTH(tty->out);
@@ -304,7 +265,6 @@ tty_write_callback(__unused int fd, __unused short events, void *data)
 int
 tty_open(struct tty *tty, char **cause)
 {
-	printf("tty_open\n");
 	struct client	*c = tty->client;
 
 	tty->term = tty_term_create(tty, c->term_name, c->term_caps,
@@ -317,14 +277,14 @@ tty_open(struct tty *tty, char **cause)
 
 	tty->flags &= ~(TTY_NOCURSOR|TTY_FREEZE|TTY_BLOCK|TTY_TIMER);
 
-	printf("tty_open :%d", c->fd);
+	printf("tty_open :%d-%d\n", c->fd, c->out_fd);
 	event_set(&tty->event_in, c->fd, EV_PERSIST|EV_READ,
 	    tty_read_callback, tty);
 	tty->in = evbuffer_new();
 	if (tty->in == NULL)
 		fatal("out of memory");
 
-	event_set(&tty->event_out, c->fd, EV_WRITE, tty_write_callback, tty);
+	event_set(&tty->event_out, c->out_fd, EV_WRITE, tty_write_callback, tty);
 	tty->out = evbuffer_new();
 	if (tty->out == NULL)
 		fatal("out of memory");
@@ -422,7 +382,6 @@ tty_send_requests(struct tty *tty)
 void
 tty_stop_tty(struct tty *tty)
 {
-	#ifndef _WIN32
 	struct client	*c = tty->client;
 	struct winsize	 ws;
 
@@ -437,6 +396,7 @@ tty_stop_tty(struct tty *tty)
 
 	event_del(&tty->event_in);
 	event_del(&tty->event_out);
+	#ifndef _WIN32
 
 	/*
 	 * Be flexible about error handling and try not kill the server just
@@ -447,6 +407,7 @@ tty_stop_tty(struct tty *tty)
 		return;
 	if (tcsetattr(c->fd, TCSANOW, &tty->tio) == -1)
 		return;
+	#endif
 
 	tty_raw(tty, tty_term_string2(tty->term, TTYC_CSR, 0, ws.ws_row - 1));
 	if (tty_acs_needed(tty))
@@ -481,7 +442,6 @@ tty_stop_tty(struct tty *tty)
 	tty_raw(tty, tty_term_string(tty->term, TTYC_RMCUP));
 
 	setblocking(c->fd, 1);
-	#endif
 }
 
 void
@@ -502,6 +462,10 @@ tty_close(struct tty *tty)
 		tty_keys_free(tty);
 
 		tty->flags &= ~TTY_OPENED;
+	}
+
+	if (tty->hPC != 0) {
+		ClosePseudoConsole(tty->hPC);
 	}
 }
 
@@ -539,9 +503,9 @@ tty_raw(struct tty *tty, const char *s)
 
 	slen = strlen(s);
 	for (i = 0; i < 5; i++) {
-		printf("tty_raw:: write\n");
 		n = write(c->fd, s, slen);
 		if (n >= 0) {
+			printf("tty_raw:: write :%d\n", n);
 			s += n;
 			slen -= n;
 			if (slen == 0)

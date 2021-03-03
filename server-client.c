@@ -2227,26 +2227,41 @@ server_client_dispatch_identify(struct client *c, struct imsg *imsg)
 			fatalx("bad MSG_IDENTIFY_STDIN size");
 
 		struct sockaddr_in 	sa;
-
-		short port = 27018;
 		sa.sin_family = AF_INET;
 		sa.sin_addr.s_addr = inet_addr("127.0.0.1");
-		sa.sin_port = htons(port);
+		sa.sin_port = htons(2701);
 
-		SOCKET conptyfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-
-		if (connect(conptyfd, (SOCKADDR *) & sa, sizeof (sa))) {
-			printf("connect failed with error %d\n", WSAGetLastError());
+		SOCKET conpty_fd = WSASocket(AF_INET, SOCK_DGRAM, IPPROTO_UDP, NULL, 0, 0);
+		
+		if (bind(conpty_fd, (SOCKADDR *) & sa, sizeof (sa))) {
+			printf("IDENTIFY_STDIN bind failed with error %d\n", WSAGetLastError());
 			return 1;
 		}
 
-		c->fd = conptyfd;
+		struct sockaddr_in 	sa2;
+		sa2.sin_family = AF_INET;
+		sa2.sin_addr.s_addr = inet_addr("127.0.0.1");
+		sa2.sin_port = htons(27011);
+
+		SOCKET conpty_out_fd = WSASocket(AF_INET, SOCK_DGRAM, IPPROTO_UDP, NULL, 0, 0);
+
+		if (connect(conpty_out_fd, (SOCKADDR *) & sa2, sizeof (sa2))) {
+			printf("IDENTIFY_STDIN connect failed with error %d\n", WSAGetLastError());
+			return 1;
+		}
+
+		c->fd = conpty_fd;
+		c->out_fd = conpty_out_fd;
+		printf("conpty_fd: %d\nconpty_out_fd: %d\n", conpty_fd, conpty_out_fd);
 		log_debug("client %p IDENTIFY_STDIN %d", c, imsg->fd);
 		break;
 	case MSG_IDENTIFY_STDOUT:
 		if (datalen != 0)
 			fatalx("bad MSG_IDENTIFY_STDOUT size");
-		c->out_fd = imsg->fd;
+			if (datalen != 0)
+			fatalx("bad MSG_IDENTIFY_STDIN size");
+
+		//c->out_fd = imsg->fd;
 		log_debug("client %p IDENTIFY_STDOUT %d", c, imsg->fd);
 		break;
 	case MSG_IDENTIFY_ENVIRON:
@@ -2291,8 +2306,8 @@ server_client_dispatch_identify(struct client *c, struct imsg *imsg)
 			tty_resize(&c->tty);
 			c->flags |= CLIENT_TERMINAL;
 		}
-		close(c->out_fd);
-		c->out_fd = -1;
+		//close(c->out_fd);
+		//c->out_fd = -1;
 	}
 
 	/*

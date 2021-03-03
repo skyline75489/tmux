@@ -233,18 +233,14 @@ client_exit(void)
 static void
 win32_client_read(int fd, short events, __unused void *data)
 {
-			printf("win32_client_read\n");
-
 	const int DEFAULT_BUFLEN = 512;
  	char recvbuf[DEFAULT_BUFLEN];
     int recvbuflen = DEFAULT_BUFLEN;
 	int iResult;
 	int n = recv(fd, recvbuf, recvbuflen, 0);
 	if (n > 0) {
-		printf("Recv OK\n");
 		printf("%s", recvbuf);
 	}
-
 }
 
 
@@ -339,23 +335,31 @@ client_main(struct event_base *base, int argc, char **argv, uint64_t flags,
     }
 
 	struct sockaddr_in 	sa;
-
-	short port = 27018;
 	sa.sin_family = AF_INET;
 	sa.sin_addr.s_addr = inet_addr("127.0.0.1");
-	sa.sin_port = htons(port);
+	sa.sin_port = htons(27011);
 
-	SOCKET conptyfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-
-	if (bind(conptyfd, (SOCKADDR *) & sa, sizeof (sa))) {
+	SOCKET conpty_fd = WSASocket(AF_INET, SOCK_DGRAM, IPPROTO_UDP, NULL, 0, 0);
+	if (bind(conpty_fd, (SOCKADDR *) & sa, sizeof (sa))) {
 		auto error = WSAGetLastError();
 		printf("bind failed with error %d\n", error);
 		return 1;
 	}
 
+	struct sockaddr_in 	sa2;
+	sa2.sin_family = AF_INET;
+	sa2.sin_addr.s_addr = inet_addr("127.0.0.1");
+	sa2.sin_port = htons(27017);
+
+	SOCKET conpty_out_fd = WSASocket(AF_INET, SOCK_DGRAM, IPPROTO_UDP, NULL, 0, 0);
+	if (connect(conpty_out_fd, (SOCKADDR *) & sa2, sizeof (sa2))) {
+		auto error = WSAGetLastError();
+		printf("connect failed with error %d\n", error);
+		return 1;
+	}
+
 	struct event	 read_event;
-	printf("event_set\n");
-	event_set(&read_event, conptyfd, EV_PERSIST|EV_READ, win32_client_read, NULL);
+	event_set(&read_event, conpty_fd, EV_PERSIST|EV_READ, win32_client_read, NULL);
 	event_add(&read_event, 0);
 
 #else
